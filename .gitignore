@@ -1,0 +1,16 @@
+.local/
+.codex/
+.env
+.env.*
+!.env.example
+bin/
+test-results/
+node_modules/
+coverage.out
+*.log
+.idea/
+.vscode/
+*.exe
+
+渴瘾玩法说明书.md
+docker-compose.yaml

@@ -1,0 +1,11 @@
+# Keep source files stable across Windows, macOS, and Linux checkouts.
+* text=auto eol=lf
+
+# Generated/bundled binary-like assets must not be line-ending transformed.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

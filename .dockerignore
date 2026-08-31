@@ -1,0 +1,9 @@
+.git
+.codex
+.local
+.env
+.env.*
+node_modules
+test-results
+coverage.out
+*.log

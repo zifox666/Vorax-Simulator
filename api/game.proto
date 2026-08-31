@@ -1,0 +1,59 @@
+syntax = "proto3";
+package vorax.v1;
+option go_package = "vorax/internal/protocol;protocol";
+
+enum Family { FAMILY_UNSPECIFIED = 0; BONE = 1; FIEND = 2; AWAKENER = 3; INSECT = 4; }
+enum MonsterRarity { MONSTER_RARITY_UNSPECIFIED = 0; NORMAL = 1; MAGIC = 2; RARE = 3; BOSS = 4; }
+enum PotionRarity { POTION_RARITY_UNSPECIFIED = 0; WHITE = 1; BLUE = 2; GOLD = 3; RED = 4; }
+enum JarColor { EMPTY = 0; JAR_WHITE = 1; PURPLE = 2; JAR_RED = 3; RAINBOW = 4; }
+enum CardKind { CARD_KIND_UNSPECIFIED = 0; UNKNOWN = 1; POTION = 2; TOOL = 3; SCHEME = 4; }
+enum Phase { PHASE_UNSPECIFIED = 0; PREPARING = 1; CHOOSING = 2; FINISHED = 3; }
+enum ClaimStatus { LOCKED = 0; PENDING = 1; CLAIMED = 2; }
+
+message Monster { string id = 1; string definition_id = 2; Family family = 3; MonsterRarity rarity = 4; int64 activity = 5; int64 quantity = 6; }
+message Slot { int32 index = 1; Monster monster = 2; int64 contribution = 3; }
+message ToolClaim { int64 threshold = 1; ClaimStatus status = 2; }
+message RewardState { repeated JarColor jars = 1; int32 drop_bonus_percent = 2; repeated ToolClaim tool_claims = 3; int64 next_threshold = 4; string next_reward_label = 5; }
+message Offer { string id = 1; CardKind kind = 2; repeated string card_ids = 3; string source = 4; int64 reward_threshold = 5; }
+message GameState {
+  string run_id = 1; string user_id = 2; uint64 revision = 3; uint32 format_version = 4;
+  string rules_version = 5; string content_version = 6; string rng_version = 7; string seed = 8;
+  Phase phase = 9; int32 base_cursor = 10; int32 completed_turns = 11;
+  repeated Slot slots = 12; repeated string tools = 13; Offer offer = 14;
+  int32 potion_refreshes = 15; int32 tool_refreshes = 16; int32 initial_pet_refreshes = 17;
+  RewardState rewards = 18; int64 score = 19; int64 peak_score = 20;
+  uint64 init_rng = 21; uint64 offer_rng = 22; uint64 effect_rng = 23;
+  uint64 next_monster_id = 24; uint64 next_offer_id = 25;
+  Family opening_tool_family = 26;
+}
+message EffectSpec { string op = 1; string selector = 2; int64 activity = 3; int64 quantity = 4; Family family = 5; MonsterRarity rarity = 6; int32 count = 7; }
+message CardDefinition {
+  string id = 1; string name = 2; string description = 3; CardKind kind = 4; PotionRarity rarity = 5;
+  int32 min_targets = 6; int32 max_targets = 7; string handler = 8; repeated EffectSpec effects = 9;
+  bool enabled = 10; string trigger = 11;
+  Family core_family = 12;
+}
+message TargetSet { repeated string ids = 1; }
+message CardView { CardDefinition definition = 1; repeated TargetSet legal_targets = 2; bool playable = 3; }
+message GameView {
+  GameState state = 1; repeated CardView cards = 2; repeated CardDefinition tools = 3;
+  bool can_refresh = 4; bool can_skip = 5; string stage_label = 6; string rules_notice = 7;
+  repeated int64 thresholds = 8;
+}
+message SlotSnapshot { int32 index = 1; Monster monster = 2; }
+message GameEvent {
+  uint64 sequence = 1; uint64 parent_sequence = 2; string kind = 3; string source = 4;
+  repeated string target_ids = 5; string message = 6; int64 activity_delta = 7; int64 quantity_delta = 8;
+  repeated SlotSnapshot slots_after = 9; string source_name = 10;
+}
+message Command { string type = 1; string offer_id = 2; string card_id = 3; repeated string target_ids = 4; }
+message CreateRunRequest {
+  string user_id = 1; int32 pet_refreshes = 2; string seed = 3; string request_id = 4;
+  string rules_version = 5; string content_version = 6; string rng_version = 7;
+}
+message CommandRequest { string state_token = 1; string request_id = 2; uint64 expected_revision = 3; Command command = 4; }
+message RestoreRequest { string state_token = 1; }
+message RunResponse { string state_token = 1; GameView view = 2; repeated GameEvent events = 3; string request_id = 4; string gameplay_hash = 5; }
+message ReplayRequest { string seed = 1; string rules_version = 2; string content_version = 3; string rng_version = 4; int32 pet_refreshes = 5; repeated Command commands = 6; string expected_gameplay_hash = 7; }
+message ReplayResponse { bool verified = 1; string gameplay_hash = 2; GameView view = 3; }
+message APIError { string code = 1; string message = 2; }

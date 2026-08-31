@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#533afd" />
+    <meta name="description" content="渴瘾模拟器" />
+    <title>渴瘾模拟器 · 回本之光</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23533afd'/%3E%3Cpath d='m10 11 10 20 10-20' fill='none' stroke='white' stroke-width='4'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <script>
+      (() => {
+        const key = "vorax-theme-preference";
+        let preference = "system";
+        try {
+          const saved = localStorage.getItem(key);
+          if (["system", "light", "dark"].includes(saved)) preference = saved;
+        } catch {}
+        const theme = preference === "system"
+          ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+          : preference;
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="boot-status" role="status">正在连接渴瘾模拟器</div>
+    <div id="app" v-cloak>
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="渴瘾模拟器首页"
+          ><span>渴瘾模拟器</span></a>
+        <div class="topbar-actions">
+          <nav aria-label="主导航">
+            <button
+              :class="{active:page==='lab'}"
+              :disabled="busy"
+              @click="page='lab'"
+            >
+              手术台</button
+            ><button
+              :class="{active:page==='history'}"
+              :disabled="busy"
+              @click="showHistory"
+            >
+              历史记录 <span class="count">{{ history.length }}</span>
+            </button>
+          </nav>
+          <div class="theme-control">
+            <button
+              class="theme-toggle"
+              type="button"
+              :aria-expanded="themeOpen"
+              aria-controls="theme-menu"
+              aria-label="调整页面外观"
+              @click="themeOpen=!themeOpen"
+            >
+              <span aria-hidden="true">{{ themeIcon }}</span>
+              <span class="theme-toggle-label">外观</span>
+            </button>
+            <div v-if="themeOpen" id="theme-menu" class="theme-menu" role="menu" aria-label="外观设置">
+              <button type="button" role="menuitemradio" :aria-checked="themePreference==='system'" :class="{selected:themePreference==='system'}" @click="setTheme('system')">
+                <span aria-hidden="true">◐</span><span>跟随系统</span>
+              </button>
+              <button type="button" role="menuitemradio" :aria-checked="themePreference==='light'" :class="{selected:themePreference==='light'}" @click="setTheme('light')">
+                <span aria-hidden="true">☼</span><span>浅色</span>
+              </button>
+              <button type="button" role="menuitemradio" :aria-checked="themePreference==='dark'" :class="{selected:themePreference==='dark'}" @click="setTheme('dark')">
+                <span aria-hidden="true">☾</span><span>暗色</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+      <main>
+        <div v-if="error" class="notice error" role="alert">
+          <span>{{ error }}</span
+          ><button @click="error=''" aria-label="关闭提示">×</button>
+        </div>
+        <div v-if="message" class="notice success" role="status">
+          {{ message }}
+        </div>
+        <div v-if="pending" class="notice warning">
+          <span>有一条操作尚未确认保存</span
+          ><button :disabled="busy" @click="retryPending">重试并保存</button>
+        </div>
+
+        <template v-if="page==='lab'">
+          <section class="page-heading">
+            <div>
+              <div class="eyebrow">回本之光</div>
+              <h1>{{ state ? '手术进行中' : '新的手术在等你' }}</h1>
+              <p></p>
+            </div>
+            <button
+              v-if="state"
+              class="button secondary"
+              :disabled="busy || !!pending"
+              @click="setupOpen=true"
+            >
+              ＋ 新一局
+            </button>
+          </section>
+
+          <section v-if="setupOpen || !state" class="setup panel">
+            <div>
+              <span class="eyebrow">NEW EXPERIMENT</span>
+              <h2>手术前准备</h2>
+            </div>
+            <form @submit.prevent="startRun()">
+              <label for="pet">宠物提供的用具刷新次数</label>
+              <div class="segmented" id="pet">
+                <button
+                  v-for="n in [0,1,2]"
+                  :key="n"
+                  type="button"
+                  :aria-pressed="pet===n"
+                  :class="{selected:pet===n}"
+                  @click="pet=n"
+                >
+                  {{ n }} 次
+                </button>
+              </div>
+              <label for="seed"
+                >种子 <span class="muted">可选，留空生成新种子</span></label
+              ><input
+                id="seed"
+                v-model="seedInput"
+                maxlength="256"
+                placeholder="可以输入相同种子反复练习"
+                autocomplete="off"
+              />
+              <div class="actions">
+                <button
+                  v-if="state"
+                  type="button"
+                  class="button ghost"
+                  @click="setupOpen=false"
+                >
+                  返回手术台</button
+                ><button
+                  class="button primary"
+                  :disabled="busy || !ready || !!pending"
+                >
+                  {{ busy ? '正在准备…' : '开始实验 →' }}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <template v-if="state && !setupOpen">
+            <div class="workspace">
+              <section class="metrics" aria-label="对局概览">
+                <div class="metric">
+                  <span class="metric-label">回合</span
+                  ><strong>{{ state.completedTurns }} <em>/ 13</em></strong
+                  ><small>{{ view.stageLabel }}</small>
+                </div>
+                <div class="metric score">
+                  <span class="metric-label">当前总分</span
+                  ><strong>{{ number(state.score) }}</strong
+                  ><small><term-text text="活性 × 数量"></term-text></small>
+                </div>
+                <div class="metric">
+                  <span class="metric-label">下一档奖励 / 分数</span
+                  ><strong
+                    >{{ state.rewards.nextThreshold === '0' ? '已达最高档' :
+                    number(state.rewards.nextThreshold) }}</strong
+                  ><small
+                    >{{ state.rewards.nextRewardLabel || '奖励随当前分数调整'
+                    }}</small
+                  >
+                </div>
+                <div class="metric rewards">
+                  <span class="metric-label"
+                    >奖励罐
+                    <span class="bonus"
+                      >+{{ state.rewards.dropBonusPercent }}% 掉落数量</span
+                    ></span
+                  >
+                  <reward-jars :rewards="state.rewards"></reward-jars>
+                  <small
+                    >本局峰值 {{ number(state.peakScore)
+                    }}</small
+                  >
+                </div>
+              </section>
+              <div class="main-column">
+                <section
+                  class="chamber-panel panel"
+                  :class="{'is-animating':animating}"
+                  :style="effectStyle"
+                  :aria-busy="animating"
+                >
+                  <div class="section-title chamber-heading">
+                    <div>
+                      <h2>
+                        怪物培养槽 <span class="muted">{{ occupied }} / 6</span>
+                      </h2>
+                      <p>
+                        {{ animating ? '效果生效中…' : selectedCard ? targetHint
+                        : '选择一张药剂，查看可作用的怪物' }}
+                      </p>
+                    </div>
+                    <div
+                      class="animation-controls"
+                      role="group"
+                      aria-label="动画速度"
+                    >
+                      <span>动画速度</span
+                      ><button
+                        v-for="speed in SPEEDS"
+                        :key="speed"
+                        :class="{selected:animationSpeed===speed}"
+                        :aria-pressed="animationSpeed===speed"
+                        @click="setAnimationSpeed(speed)"
+                      >
+                        {{ speed }}x
+                      </button>
+                    </div>
+                  </div>
+                  <div class="slots">
+                    <button
+                      v-for="slot in state.slots"
+                      :key="slot.index"
+                      :class="['slot', slot.monster ? slot.monster.family.toLowerCase() : 'empty-slot', slotEffectClass(slot), {targetable:canTarget(slot.monster), chosen:slot.monster && targets.includes(slot.monster.id)}]"
+                      :data-rarity="slot.monster?.rarity"
+                      :disabled="!canTarget(slot.monster)"
+                      @click="toggleTarget(slot.monster.id)"
+                      :aria-label="slotLabel(slot)"
+                      :aria-pressed="!!slot.monster && targets.includes(slot.monster.id)"
+                    >
+                      <span class="slot-index"
+                        >0{{ slot.index+1 }}<span
+                          v-if="slot.monster && targets.includes(slot.monster.id)"
+                          class="selection-order"
+                          >{{ targets.indexOf(slot.monster.id)+1 }}</span
+                        ></span
+                      >
+                      <div class="specimen-body">
+                        <template v-if="slot.monster"
+                          ><div class="specimen-symbol">
+                            {{ familySymbols[slot.monster.family] }}
+                          </div>
+                          <span class="family-name"
+                            >{{ familyNames[slot.monster.family] }}</span
+                          ><span
+                            :class="['rarity-label',slot.monster.rarity.toLowerCase()]"
+                            >{{ monsterRarities[slot.monster.rarity] }}</span
+                          ><strong class="contribution"
+                            >{{ number(slot.contribution) }}</strong
+                          ><span class="formula"
+                            ><span
+                              class="stat-value"
+                              :class="{'stat-changing':slotEffect(slot) && effectDelta(slot,'activity')!=='0'}"
+                              >{{ number(slot.monster.activity) }}</span
+                            >
+                            <span>×</span>
+                            <span
+                              class="stat-value"
+                              :class="{'stat-changing':slotEffect(slot) && effectDelta(slot,'quantity')!=='0'}"
+                              >{{ number(slot.monster.quantity) }}</span
+                            ></span
+                          ><term-text
+                            class="formula-caption"
+                            text="活性 · 数量"
+                          ></term-text
+                        ></template>
+                        <template v-else
+                          ><div class="empty-plus">＋</div>
+                          <span class="family-name muted">空培养槽</span
+                          ><span class="formula-caption"
+                            >等待添加怪物</span
+                          ></template
+                        >
+                      </div>
+                      <div
+                        v-if="slotEffect(slot)"
+                        :key="activeEffect.key"
+                        class="slot-effect"
+                        aria-hidden="true"
+                      >
+                        <span class="effect-ring"></span
+                        ><term-text
+                          class="effect-label"
+                          :text="activeEffect.label"
+                        ></term-text>
+                        <span
+                          v-if="effectDelta(slot,'activity')!=='0' || effectDelta(slot,'quantity')!=='0'"
+                          class="effect-deltas"
+                          ><term-text
+                            v-if="effectDelta(slot,'activity')!=='0'"
+                            :text="'活性 '+signed(effectDelta(slot,'activity'))"
+                          ></term-text
+                          ><term-text
+                            v-if="effectDelta(slot,'quantity')!=='0'"
+                            :text="'数量 '+signed(effectDelta(slot,'quantity'))"
+                          ></term-text
+                        ></span>
+                      </div>
+                    </button>
+                  </div>
+                </section>
+
+                <section
+                  v-if="animating"
+                  class="resolution-panel panel"
+                  aria-label="效果结算"
+                >
+                  <div class="section-title">
+                    <div>
+                      <div class="eyebrow">效果结算</div>
+                      <h2>
+                        {{ activeEffect ? eventSource(activeEffect.event) :
+                        '手术台' }}
+                      </h2>
+                    </div>
+                    <span class="tiny-badge"
+                      >{{ animationFrame ? animationFrame.index+1 : 0 }} / {{
+                      animationFrame?.total || 0 }}</span
+                    >
+                  </div>
+                  <div
+                    class="resolution-effect"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >
+                    <span class="resolution-icon" aria-hidden="true">✧</span
+                    ><strong
+                      ><term-text
+                        :text="activeEffect?.label || '准备中'"
+                      ></term-text></strong
+                    ><span v-if="activeEffect?.affected.length"
+                      >培养槽 {{ activeEffect.affected.map(slot=>String(slot.index+1).padStart(2,'0')).join(' · ') }}</span
+                    >
+                  </div>
+                  <div
+                    class="resolution-progress"
+                    role="progressbar"
+                    aria-label="结算进度"
+                    :aria-valuenow="Math.round(100*((animationFrame?.index || 0)+(animationFrame?.progress || 0))/(animationFrame?.total || 1))"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                  >
+                    <span
+                      :style="{width:100*((animationFrame?.index || 0)+(animationFrame?.progress || 0))/(animationFrame?.total || 1)+'%'}"
+                    ></span>
+                  </div>
+                </section>
+                <choice-panel
+                  v-else-if="state.phase!=='FINISHED'"
+                  :view="view"
+                  :locked="locked"
+                  :selected-index="selectedIndex"
+                  :selected-hint="selectedCard ? targetHint : ''"
+                  :can-confirm="canConfirm"
+                  :busy="busy"
+                  @select="selectCard"
+                  @refresh="refresh"
+                  @skip="skipUnknown"
+                  @confirm="confirmChoice"
+                ></choice-panel>
+                <section
+                  v-else-if="state.phase==='FINISHED'"
+                  class="finished panel"
+                >
+                  <div class="eyebrow">EXPERIMENT COMPLETE</div>
+                  <h2>本次实验完成</h2>
+                  <reward-jars :rewards="state.rewards"></reward-jars>
+                  <strong>{{ number(state.score) }}</strong>
+                  <p>最终得分 · {{ state.completedTurns }} 回合</p>
+                  <div class="actions">
+                    <button
+                      v-if="state"
+                      class="button primary"
+                      :disabled="busy || !!pending"
+                      @click="setupOpen=true"
+                    >
+                      下一回合
+                    </button>
+                    <button
+                      class="button secondary"
+                      :disabled="busy || !!pending"
+                      @click="repeatRun(record)"
+                    >
+                      再试一次</button
+                    >
+                    <button class="button secondary" @click="showHistory">
+                      历史记录
+                    </button>
+                  </div>
+                </section>
+              </div>
+
+              <aside class="side-column">
+                <section class="panel tool-panel">
+                  <div class="section-title">
+                    <h2>
+                      已有手术器具
+                      <span class="muted">{{ view.tools.length }}</span>
+                    </h2>
+                  </div>
+                  <div v-if="!view.tools.length" class="empty-tools">
+                    <p>暂未获得手术器具</p>
+                  </div>
+                  <ol v-else class="tool-list">
+                    <li
+                      v-for="(tool,index) in view.tools"
+                      :key="tool.id"
+                      :class="{'tool-active':activeEffect?.event.source===tool.id}"
+                    >
+                      <span class="tool-number">{{ index+1 }}</span>
+                      <div>
+                        <strong>{{ tool.name }}</strong>
+                        <p><term-text :text="tool.description"></term-text></p>
+                      </div>
+                    </li>
+                  </ol>
+                  <div class="refresh-budget">
+                    <span>用具剩余刷新次数</span
+                    ><strong>{{ state.toolRefreshes }} 次</strong
+                    ><span>药剂剩余刷新次数</span
+                    ><strong>{{ state.potionRefreshes }} 次</strong>
+                  </div>
+                </section>
+                <section class="panel log-panel">
+                  <div class="section-title">
+                    <h2>日志</h2>
+                    <span class="tiny-badge"
+                      >{{ animating ? '结算中' : '最近一次' }}</span
+                    >
+                  </div>
+                  <div v-if="!visibleEvents.length" class="empty-log">
+                    暂无日志
+                  </div>
+                  <ol v-else class="event-list">
+                    <li
+                      v-for="event in visibleEvents"
+                      :key="event.sequence"
+                      :class="{'event-active':activeEffect?.event.sequence===event.sequence}"
+                    >
+                      <span class="event-dot"></span>
+                      <div>
+                        <span class="event-source"
+                          >{{ eventSource(event) }}<span
+                            v-if="event.parentSequence && event.parentSequence!=='0'"
+                          >
+                            · 连锁 #{{ event.parentSequence }}</span
+                          ></span
+                        >
+                        <p>
+                          <term-text :text="eventLabel(event)"></term-text
+                          ><template v-if="event.kind==='stats_changed'">
+                            ·
+                            <term-text
+                              v-if="event.activityDelta!=='0'"
+                              :text="'活性 '+signed(event.activityDelta)+' '"
+                            ></term-text
+                            ><term-text
+                              v-if="event.quantityDelta!=='0'"
+                              :text="'数量 '+signed(event.quantityDelta)"
+                            ></term-text
+                          ></template>
+                        </p>
+                      </div>
+                    </li>
+                  </ol>
+                </section>
+              </aside>
+            </div>
+            <footer class="session-footer">
+              <span
+                ><i :class="['status-dot',{offline:!connected}]"></i>{{
+                connected ? '后端已连接' : '本地展示 · 等待恢复连接' }} · {{
+                savedLabel }}</span
+              ><button :disabled="busy || !!pending" @click="restoreCurrent">
+                重新连接</button
+              ><span class="seed-display" :title="state.seed"
+                >SEED {{ state.seed }}</span
+              ><button @click="copySeed">复制种子</button>
+            </footer>
+          </template>
+        </template>
+
+        <template v-if="page==='history'">
+          <section class="page-heading">
+            <div>
+              <div class="eyebrow">YOUR EXPERIMENTS</div>
+              <p>
+                仅保存在当前浏览器。清除浏览器数据后无法恢复，不支持跨设备同步。
+              </p>
+            </div>
+            <button class="button primary" @click="page='lab';setupOpen=true">
+              ＋ 开始新实验
+            </button>
+          </section>
+          <section class="panel history-panel">
+            <div class="section-title">
+              <h2>
+                实验记录 <span class="muted">{{ history.length }} 局</span>
+              </h2>
+              <span class="tiny-badge">按最近更新排序</span>
+            </div>
+            <div v-if="!history.length" class="history-empty">
+              <span>⌁</span>
+              <h2>还没有实验记录</h2>
+              <p>开始一局，探索你的第一组连锁。</p>
+              <button class="button primary" @click="page='lab';setupOpen=true">
+                开始实验 →
+              </button>
+            </div>
+            <div v-else class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>实验 / 时间</th>
+                    <th>最终 / 当前分数</th>
+                    <th>奖励罐</th>
+                    <th>峰值</th>
+                    <th>回合</th>
+                    <th>种子 / 版本</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="run in history" :key="run.id">
+                    <td>
+                      <strong
+                        >{{ run.view.state.phase==='FINISHED' ? '已完成' :
+                        '未完成' }}</strong
+                      ><small>{{ date(run.updatedAt) }}</small>
+                    </td>
+                    <td class="table-score">
+                      {{ number(run.view.state.score) }}
+                    </td>
+                    <td class="history-rewards">
+                      <reward-jars :rewards="run.view.state.rewards"></reward-jars>
+                    </td>
+                    <td>{{ number(run.view.state.peakScore) }}</td>
+                    <td>{{ run.view.state.completedTurns }}</td>
+                    <td>
+                      <span class="history-seed" :title="run.view.state.seed"
+                        >{{ run.view.state.seed }}</span
+                      ><small
+                        >{{ run.view.state.rulesVersion }} / {{
+                        run.view.state.contentVersion }}</small
+                      >
+                    </td>
+                    <td>
+                      <div class="table-actions">
+                        <button
+                          v-if="run.view.state.phase!=='FINISHED'"
+                          :disabled="busy || !!pending"
+                          @click="resumeRun(run)"
+                        >
+                          继续</button
+                        ><button
+                          :disabled="busy || !!pending"
+                          @click="repeatRun(run)"
+                        >
+                          同种子重开</button
+                        ><button :disabled="busy" @click="verifyRun(run)">
+                          验证复现
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </template>
+        <div class="bottom-note">
+          <span>渴瘾模拟器<br>模拟器内容为测试资料，正确资讯请以官方游戏内的内容为准。本项目不隶属于火炬之光: 无限，也未得到心动网络股份有限公司的认可。心动网络对本项目的内容或功能不承担任何责任，也不对使用本项目而产生的任何损害承担责任。与这些商标相关的所有艺术作品、截图、角色、车辆、故事情节、世界事实或其他可识别的知识产权特征同样属于心动网络的知识产权。本项目遵循心动网络的使用许可条款，仅用于学习交流和非商业用途。</span>
+          <span v-if="profile">{{ profile.id.slice(0,8) }}</span>
+        </div>
+      </main>
+    </div>
+    <script src="/assets/bootstrap.js" defer></script>
+  </body>
+</html>
