@@ -6,6 +6,17 @@ const monster = (id='m1', activity='10', quantity='20', family='BONE', rarity='N
 const slots = (...monsters) => Array.from({length:6},(_,index)=>({index,monster:monsters[index] || null}));
 const event = (sequence,kind,slotsAfter, targetIds=['m1'],extra={}) => ({sequence:String(sequence),kind,slotsAfter,targetIds,...extra});
 
+test('named monster identity changes with the structural animation frame',()=>{
+  const before={...monster(),definitionId:'bone_soldier',name:'士兵'};
+  const after={...monster('m1','15','44','BONE','MAGIC'),definitionId:'bone_light_crossbowman',name:'轻弩兵'};
+  for(const kind of ['mutated','awakened']){
+    const [step]=buildSteps(slots(before),[event(1,kind,slots(after))]);
+    assert.equal(sampleStep(step,.49)[0].monster.name,'士兵');
+    assert.equal(sampleStep(step,.51)[0].monster.name,'轻弩兵');
+    assert.equal(sampleStep(step,1)[0].monster.definitionId,'bone_light_crossbowman');
+  }
+});
+
 test('gray marrow plays buff, mutation, second mutation and final buff in order',()=>{
   const initial=slots(monster());
   const frames=[slots(monster('m1','51')),slots(monster('m1','56','44','INSECT','MAGIC')),slots(monster('m1','71','56','FIEND','RARE')),slots(monster('m1','101','56','FIEND','RARE'))];

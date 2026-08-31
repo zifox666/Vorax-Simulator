@@ -9,12 +9,12 @@ import (
 // RulesVersion and ContentVersion identify the initial public data snapshot.
 // Change either value only when publishing a new, immutable rules or content set.
 const RulesVersion = "rules-v1"
-const ContentVersion = "cards-v1"
+const ContentVersion = "cards-v2"
 
 // RNGVersion identifies the random-draw semantics. Bump it whenever draw
 // behavior changes (e.g. distribution or consumption), so old saves fail
 // validation instead of replaying differently than the player saw.
-const RNGVersion = "splitmix64-v2" // v2：怪物稀有度改为 45/30/20/5 权重抽取（原为等概率）
+const RNGVersion = "splitmix64-v4"
 
 type Rules struct {
 	Version        string               `json:"version"`

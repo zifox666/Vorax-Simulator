@@ -75,13 +75,13 @@ func RebuildState(o *Observation) (*pb.GameState, error) {
 			NextRewardLabel:  o.Rewards.NextRewardLabel,
 		},
 		// 隐藏状态：随机重播，AI 无法借此得知真实未来。
-		InitRng:     rand.Uint64(),
-		OfferRng:    rand.Uint64(),
-		EffectRng:   rand.Uint64(),
-		NextMonsterId: 1,
-		NextOfferId:   1,
-		FormatVersion: 1,
-		RulesVersion:  engine.RulesVersion,
+		InitRng:        rand.Uint64(),
+		OfferRng:       rand.Uint64(),
+		EffectRng:      rand.Uint64(),
+		NextMonsterId:  1,
+		NextOfferId:    1,
+		FormatVersion:  1,
+		RulesVersion:   engine.RulesVersion,
 		ContentVersion: engine.ContentVersion,
 		RngVersion:     engine.RNGVersion,
 		Revision:       1,
@@ -100,11 +100,13 @@ func RebuildState(o *Observation) (*pb.GameState, error) {
 		slot := &pb.Slot{Index: sv.Index}
 		if sv.Family >= 1 && sv.Family <= 4 && sv.Rarity >= 1 && sv.Rarity <= 4 {
 			slot.Monster = &pb.Monster{
-				Id:       fmt.Sprintf("m-%d", sv.Index),
-				Family:   pb.Family(sv.Family),
-				Rarity:   pb.MonsterRarity(sv.Rarity),
-				Activity: sv.Activity,
-				Quantity: sv.Quantity,
+				DefinitionId: sv.DefinitionID,
+				Name:         sv.Name,
+				Id:           fmt.Sprintf("m-%d", sv.Index),
+				Family:       pb.Family(sv.Family),
+				Rarity:       pb.MonsterRarity(sv.Rarity),
+				Activity:     sv.Activity,
+				Quantity:     sv.Quantity,
 			}
 		}
 		s.Slots = append(s.Slots, slot)

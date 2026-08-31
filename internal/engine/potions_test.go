@@ -584,7 +584,7 @@ func TestPotionHolyWaterAllRarities(t *testing.T) {
 			t.Fatalf("wrong holy water result: %v", m)
 		}
 	}
-	if getMonster(s, other).Activity != 10 || getMonster(s, other).Quantity != 20 || s.EffectRng != beforeRNG || s.NextMonsterId != beforeNextID || eventCount(c.events, "awakened") != 3 || eventCount(c.events, "stats_changed") != 1 || eventCount(c.events, "added") != 0 || eventCount(c.events, "mutated") != 0 {
+	if getMonster(s, other).Activity != 10 || getMonster(s, other).Quantity != 20 || s.EffectRng == beforeRNG || s.NextMonsterId != beforeNextID || eventCount(c.events, "awakened") != 4 || eventCount(c.events, "stats_changed") != 0 || eventCount(c.events, "added") != 0 || eventCount(c.events, "mutated") != 0 {
 		t.Fatal("holy water applied unexpected side effects")
 	}
 }

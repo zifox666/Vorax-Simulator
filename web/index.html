@@ -277,7 +277,9 @@
                           ><div class="specimen-symbol">
                             {{ familySymbols[slot.monster.family] }}
                           </div>
-                          <span class="family-name"
+                          <span class="monster-name"
+                            >{{ slot.monster.name || familyNames[slot.monster.family] }}</span
+                          ><span class="family-name"
                             >{{ familyNames[slot.monster.family] }}</span
                           ><span
                             :class="['rarity-label',slot.monster.rarity.toLowerCase()]"

@@ -65,7 +65,7 @@ func TestObservationRoundTrip(t *testing.T) {
 	}
 	for i := range obs.Slots {
 		a, b := obs.Slots[i], obs2.Slots[i]
-		if a.Family != b.Family || a.Rarity != b.Rarity || a.Activity != b.Activity || a.Quantity != b.Quantity {
+		if a.DefinitionID != b.DefinitionID || a.Name != b.Name || a.Family != b.Family || a.Rarity != b.Rarity || a.Activity != b.Activity || a.Quantity != b.Quantity {
 			t.Errorf("槽位 %d 不一致: %+v vs %+v", i, a, b)
 		}
 	}
@@ -214,10 +214,10 @@ func TestRefreshCountersDistinct(t *testing.T) {
 // 且不信任外部传入的 CanRefresh 标志（防止 observation 模式传错）。
 func TestRefreshAvailabilityByKindAndCounters(t *testing.T) {
 	cases := []struct {
-		name                 string
-		offerKind            int32
-		potion, tool         int32
-		canRefreshFlag       bool
+		name                  string
+		offerKind             int32
+		potion, tool          int32
+		canRefreshFlag        bool
 		wantRefresh, wantSkip bool
 	}{
 		{"药剂候选+药剂刷新>0", 2, 3, 0, true, true, false},
@@ -230,8 +230,8 @@ func TestRefreshAvailabilityByKindAndCounters(t *testing.T) {
 	}
 	for _, tc := range cases {
 		o := &Observation{
-			Phase: map[int32]string{1: "PREPARING"}[tc.offerKind],
-			Offer: OfferView{Kind: tc.offerKind},
+			Phase:           map[int32]string{1: "PREPARING"}[tc.offerKind],
+			Offer:           OfferView{Kind: tc.offerKind},
 			PotionRefreshes: tc.potion, ToolRefreshes: tc.tool, CanRefresh: tc.canRefreshFlag,
 		}
 		if o.Phase == "" {

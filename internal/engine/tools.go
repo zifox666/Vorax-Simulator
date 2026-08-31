@@ -11,7 +11,7 @@ func toolCards() []*pb.CardDefinition {
 		id, name, description, trigger string
 		enabled                        bool
 	}{
-		{"claw", "栾缩指爪", "移除非骨卫兵的怪物时，随机一组怪物+150数量。", "removed", true},
+		{"claw", "挛缩指爪", "移除非骨卫兵的怪物时，随机一组怪物+150数量。", "removed", true},
 		{"cortex", "蜕生脑皮层", "回合结束时，随机2组魔法怪物融合为稀有觉醒者。", "turn_end", true},
 		{"goat_suture", "黑山羊肠缝线", "回合结束时，每拥有3组相同稀有度的怪物将其融合为1组更高稀有度的怪物。", "turn_end", true},
 		{"marrow", "蠕动脊髓", "每次添加怪物时，75%概率将其变为异魔，并使其+80活性。", "added", true},
@@ -32,8 +32,8 @@ func toolCards() []*pb.CardDefinition {
 		{"statue", "疫区圣母像", "每2回合，每个稀有度内随机1组怪物觉醒为高1阶稀有度的怪物。", "turn_end", true},
 		{"cluster_eggs", "簇生虫卵", "拥有至少3组蛊虫时，每回合添加1组蛊虫，并使其+100数量。", "turn_end", true},
 		{"nail", "二寸颅骨钉", "添加怪物时，若超过培养皿数量上限，使活性最低的1组怪物+25活性和+25数量。", "overflow", true},
-		{"mouth", "二度降生者之嘴", "回合结束时，如果有2组怪物，添加1组怪物；如果有6组怪物，活性最高的怪物吞噬总活性最低的怪物。", "turn_end", true},
-		{"hatching_egg", "孵化卵", "拥有至少2组蛊虫时，每次添加怪物时，使所有怪物+45数量。", "added", true},
+		{"mouth", "二度降生者之喙", "回合结束时，如果有2组怪物，添加1组怪物；如果有6组怪物，活性最高的怪物吞噬总活性最低的怪物。", "turn_end", true},
+		{"hatching_egg", "孵化囊", "拥有至少2组蛊虫时，每次添加怪物时，使所有怪物+45数量。", "added", true},
 		{"brooding_butterfly", "抱卵蝶", "每3回合，随机2组蛊虫融合为1组随机蛊虫。", "turn_end", true},
 	}
 	cards := make([]*pb.CardDefinition, 0, len(entries))

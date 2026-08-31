@@ -63,10 +63,24 @@ func drawPotionCards(s *pb.GameState, r *Rules, count int, weights [4]int, boxLi
 			}
 		}
 		if len(group) == 0 {
+			// 该稀有度剩余卡牌已全部抽过：退化为从整个剩余卡池中抽取，保证不重复且不中断。
+			for _, card := range pool {
+				if size, _ := potionBox(card); size == 0 || boxLimit > 0 {
+					group = append(group, card)
+				}
+			}
+		}
+		if len(group) == 0 {
 			return nil, fmt.Errorf("INVALID_CONTENT: 稀有度卡池为空")
 		}
 		card := group[randomN(&s.OfferRng, len(group))]
 		ids = append(ids, card.Id)
+		for i, c := range pool {
+			if c == card {
+				pool = append(pool[:i], pool[i+1:]...)
+				break
+			}
+		}
 		if size, _ := potionBox(card); size != 0 {
 			boxLimit--
 		}

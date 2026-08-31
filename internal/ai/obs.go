@@ -35,11 +35,13 @@ type Observation struct {
 
 // SlotView 对应一个培养槽：目标一律用槽位序号表示（UI 点击培养槽）。
 type SlotView struct {
-	Index    int32 `json:"index"`
-	Family   int32 `json:"family"`   // 1 骨卫兵 2 异魔 3 觉醒者 4 蛊虫; 0 空
-	Rarity   int32 `json:"rarity"`   // 1 普通 2 魔法 3 稀有 4 首领
-	Activity int64 `json:"activity"`
-	Quantity int64 `json:"quantity"`
+	DefinitionID string `json:"definitionId,omitempty"`
+	Name         string `json:"name,omitempty"`
+	Index        int32  `json:"index"`
+	Family       int32  `json:"family"` // 1 骨卫兵 2 异魔 3 觉醒者 4 蛊虫; 0 空
+	Rarity       int32  `json:"rarity"` // 1 普通 2 魔法 3 稀有 4 首领
+	Activity     int64  `json:"activity"`
+	Quantity     int64  `json:"quantity"`
 }
 
 // OfferView 描述当前候选的类别（药剂 / 用具 / 方案 / 未知器具）与奖励门槛。
@@ -99,6 +101,7 @@ func FromGameState(s *pb.GameState) *Observation {
 	for _, slot := range s.Slots {
 		sv := SlotView{Index: slot.Index}
 		if slot.Monster != nil {
+			sv.DefinitionID, sv.Name = slot.Monster.DefinitionId, slot.Monster.Name
 			sv.Family, sv.Rarity, sv.Activity, sv.Quantity = int32(slot.Monster.Family), int32(slot.Monster.Rarity), slot.Monster.Activity, slot.Monster.Quantity
 		}
 		o.Slots = append(o.Slots, sv)

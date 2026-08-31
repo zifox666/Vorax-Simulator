@@ -42,6 +42,13 @@ func TestMonsterRarityWeights(t *testing.T) {
 func put(s *pb.GameState, i int, f pb.Family, r pb.MonsterRarity, a, q int64) string {
 	id := fmt.Sprintf("monster-%d", i+1)
 	s.Slots[i].Monster = &pb.Monster{Id: id, Family: f, Rarity: r, Activity: a, Quantity: q}
+	for j := range monsterDefinitions {
+		d := &monsterDefinitions[j]
+		if d.family == f && d.rarity == r {
+			d.identify(s.Slots[i].Monster)
+			break
+		}
+	}
 	s.NextMonsterId = 10
 	return id
 }

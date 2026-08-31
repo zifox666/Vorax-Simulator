@@ -20,6 +20,16 @@ func TestPotionBoxDefinitions(t *testing.T) {
 		if card == nil || !card.Enabled || size != tc.size || rare != tc.rare || card.Rarity != pb.PotionRarity_GOLD || card.MinTargets != 0 || card.MaxTargets != 0 {
 			t.Fatalf("invalid box %s: %v", tc.id, card)
 		}
+		name := "药剂箱(小)"
+		if tc.size == 5 {
+			name = "药剂箱(大)"
+		}
+		if tc.rare {
+			name = "稀有" + name
+		}
+		if card.Name != name {
+			t.Fatalf("box name %q, want %q", card.Name, name)
+		}
 	}
 }
 
@@ -183,6 +193,41 @@ func TestPotionBoxPoolsExcludeBoxes(t *testing.T) {
 				if size, _ := potionBox(r.Card(id)); size > 0 {
 					t.Fatal("box pool contained box")
 				}
+			}
+		}
+	}
+}
+
+func TestPotionDrawsHaveNoDuplicates(t *testing.T) {
+	for seed := 0; seed < 512; seed++ {
+		s, r := fixture(t)
+		put(s, 0, pb.Family_BONE, pb.MonsterRarity_NORMAL, 1, 36)
+		s.OfferRng = uint64(seed)
+		for _, tc := range []struct {
+			count     int
+			weights   [4]int
+			boxLimit  int
+			withBones bool
+		}{
+			{3, [4]int{40, 35, 20, 5}, 1, false},
+			{3, [4]int{30, 20, 40, 10}, 1, false},
+			{3, [4]int{40, 35, 20, 5}, 0, false},
+			{5, [4]int{30, 20, 40, 10}, 0, false},
+			{5, [4]int{0, 0, 1, 0}, 0, false},
+		} {
+			ids, err := drawPotionCards(s, r, tc.count, tc.weights, tc.boxLimit)
+			if err != nil {
+				t.Fatalf("seed %d weights %v count %d: %v", seed, tc.weights, tc.count, err)
+			}
+			if len(ids) != tc.count {
+				t.Fatalf("seed %d: got %d ids, want %d", seed, len(ids), tc.count)
+			}
+			seen := map[string]bool{}
+			for _, id := range ids {
+				if seen[id] {
+					t.Fatalf("seed %d weights %v count %d: duplicate card %s in %v", seed, tc.weights, tc.count, id, ids)
+				}
+				seen[id] = true
 			}
 		}
 	}

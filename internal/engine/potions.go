@@ -12,7 +12,7 @@ func potionCards() []*pb.CardDefinition {
 		{Id: "bone_ointment", Name: "化骨油膏", Description: "至少拥有1组骨卫兵时，随机移除至多3组非骨卫兵怪物，每移除1组，使所有怪物+28活性+28数量", Rarity: gold, Handler: "potion_bone_ointment", Enabled: true},
 		{Id: "alien_hormone", Name: "异种激素", Description: "选择1-2组怪物移除，添加4组随机怪物，使其+5活性", Rarity: white, MinTargets: 1, MaxTargets: 2, Handler: "potion_alien_hormone", Enabled: true},
 		{Id: "targeted_alien_hormone", Name: "靶向异种激素", Description: "选择1组怪物移除，添加2组随机种群的魔法怪物，并使其+25数量", Rarity: white, MinTargets: 1, MaxTargets: 1, Handler: "potion_targeted_alien_hormone", Enabled: true},
-		{Id: "will_powder", Name: "祛意药粉", Description: "选择1组怪物+127数量，移除1组与其不同种群的怪物", Rarity: blue, MinTargets: 1, MaxTargets: 1, Handler: "potion_will_powder"},
+		{Id: "will_powder", Name: "祛异药粉", Description: "选择1组怪物+127数量，移除1组与其不同种群的怪物", Rarity: blue, MinTargets: 1, MaxTargets: 1, Handler: "potion_will_powder"},
 		{Id: "awakening", Name: "迷魂酊剂", Description: "选择1组怪物，觉醒为高一阶稀有度的怪物", Rarity: blue, MinTargets: 1, MaxTargets: 1, Effects: []*pb.EffectSpec{{Op: "awaken", Selector: "selected", Count: 1}}, Enabled: true},
 		{Id: "cleansing_ointment", Name: "清疽油膏", Description: "选择1组怪物+20活性；如果是骨卫兵额外+41数量并移除其右侧怪物", Rarity: gold, MinTargets: 1, MaxTargets: 1, Handler: "potion_cleansing_ointment", Enabled: true},
 		{Id: "mixed_leech", Name: "混合活蛭溶液", Description: "选择1组怪物，使得2组稀有度相同的怪物+31活性", Rarity: blue, MinTargets: 1, MaxTargets: 1, Handler: "potion_mixed_leech"},
@@ -24,7 +24,7 @@ func potionCards() []*pb.CardDefinition {
 		{Id: "petrified_marrow", Name: "石化脊髓溶液", Description: "选择1组怪物+20活性，如果不算异魔则变异为异魔，并使其额外+30活性", Rarity: gold, MinTargets: 1, MaxTargets: 1, Handler: "potion_petrified_marrow", Enabled: true},
 		{Id: "gray_marrow", Name: "灰质脊髓溶液", Description: "随机1组怪物+41活性，变异为随机怪物；有50%概率将其再次变异为异魔并+30活性", Rarity: blue, Handler: "potion_gray_marrow", Enabled: true},
 		{Id: "hollow_marrow", Name: "空心脊髓溶液", Description: "选择1组怪物+41活性，50%概率将其变异为随机异魔", Rarity: blue, MinTargets: 1, MaxTargets: 1, Handler: "potion_hollow_marrow", Enabled: true},
-		{Id: "strong_will_powder", Name: "强效祛意药粉", Description: "选择1组怪物+154数量，移除2组与其不同种群的怪物", Rarity: blue, MinTargets: 1, MaxTargets: 1, Handler: "potion_strong_will_powder"},
+		{Id: "strong_will_powder", Name: "强效祛异药粉", Description: "选择1组怪物+154数量，移除2组与其不同种群的怪物", Rarity: blue, MinTargets: 1, MaxTargets: 1, Handler: "potion_strong_will_powder"},
 		{Id: "pia_mater", Name: "软脑膜溶液", Description: "选择1组怪物+30活性、魔法觉醒者生效2次、稀有/首领觉醒者生效3次", Rarity: gold, MinTargets: 1, MaxTargets: 1, Handler: "potion_pia_mater", Enabled: true},
 		{Id: "awaker_fluid", Name: "脊髓溶液-觉醒者", Description: "添加1组觉醒者，使其+31活性", Rarity: white, Effects: []*pb.EffectSpec{{Op: "add", Count: 1, Family: pb.Family_AWAKENER, Activity: 31}}, Enabled: true},
 		{Id: "mutagen_powder", Name: "诱变药粉", Description: "选择1-2组怪物+52数量，使其变异为随机稀有怪物", Rarity: blue, MinTargets: 1, MaxTargets: 2, Effects: []*pb.EffectSpec{{Op: "buff", Selector: "selected", Quantity: 52}, {Op: "mutate", Selector: "selected", Rarity: pb.MonsterRarity_RARE}}, Enabled: true},
@@ -32,8 +32,8 @@ func potionCards() []*pb.CardDefinition {
 		{Id: "peat_dressing", Name: "疫区泥炭敷料", Description: "至少拥有1组骨卫兵时，移除所有非骨卫兵怪物，每移除1组怪物，使所有骨卫兵+20活性+20数量", Rarity: red, Handler: "potion_peat_dressing", Enabled: true},
 		{Id: "box_3", Name: "稀有药剂箱(小)", Description: "包含3支随机药剂，稀有和至臻药剂概率翻倍", Rarity: gold, Handler: "potion_box_3"},
 		{Id: "box_5", Name: "稀有药剂箱(大)", Description: "包含5支随机药剂，稀有和至臻药剂概率翻倍", Rarity: gold, Handler: "potion_box_5"},
-		{Id: "normal_box_3", Name: "普通药剂箱(小)", Description: "包含3支随机药剂", Rarity: gold, Handler: "potion_normal_box_3"},
-		{Id: "normal_box_5", Name: "普通药剂箱(大)", Description: "包含5支随机药剂", Rarity: gold, Handler: "potion_normal_box_5"},
+		{Id: "normal_box_3", Name: "药剂箱(小)", Description: "包含3支随机药剂", Rarity: gold, Handler: "potion_normal_box_3"},
+		{Id: "normal_box_5", Name: "药剂箱(大)", Description: "包含5支随机药剂", Rarity: gold, Handler: "potion_normal_box_5"},
 		{Id: "fresh_marrow_powder", Name: "鲜脊髓药粉", Description: "随机至多3组非异魔变异为异魔，每变异1组，使随机3组异魔+42数量", Rarity: gold, Handler: "potion_fresh_marrow_powder"},
 		{Id: "fiend_anesthetic", Name: "麻药酊剂-异魔", Description: "选择1组怪物，变异为异魔，50%概率再随机1组怪物变异为异魔", Rarity: white, MinTargets: 1, MaxTargets: 1, Handler: "potion_fiend_anesthetic", Enabled: true},
 		{Id: "insect_powder", Name: "细肢药粉-蛊虫", Description: "添加1组蛊虫，使其+73数量", Rarity: white, Effects: []*pb.EffectSpec{{Op: "add", Count: 1, Family: pb.Family_INSECT, Quantity: 73}}, Enabled: true},
@@ -41,11 +41,11 @@ func potionCards() []*pb.CardDefinition {
 		{Id: "proliferation_powder", Name: "活殖药粉", Description: "随机4组稀有度各不相同的怪物+32数量", Rarity: blue, Handler: "potion_proliferation_powder"},
 		{Id: "eggshell_powder", Name: "卵壳药粉", Description: "随机1组怪物+25数量，如果是蛊虫，添加1组同名蛊虫并为其+25数量", Rarity: blue, Handler: "potion_eggshell_powder"},
 		{Id: "pure_leech", Name: "纯粹活蛭溶液", Description: "选择1组怪物，使2组同种群怪物+31活性", Rarity: blue, MinTargets: 1, MaxTargets: 1, Handler: "potion_pure_leech"},
-		{Id: "insect_boost", Name: "益生菌溶液", Description: "每有1组蛊虫，所有蛊虫+11活性", Rarity: gold, Handler: "potion_insect_boost", Enabled: true},
+		{Id: "insect_boost", Name: "益生霉溶液", Description: "每有1组蛊虫，所有蛊虫+11活性", Rarity: gold, Handler: "potion_insect_boost", Enabled: true},
 		{Id: "lure", Name: "诱虫剂", Description: "添加4组蛊虫，每溢出1组，使已有蛊虫+10活性+10数量", Rarity: red, Handler: "potion_lure", Enabled: true},
 		{Id: "brain_fog", Name: "脑雾酊剂", Description: "随机1组怪物+41活性，如果是觉醒者，觉醒为稀有怪物", Rarity: blue, Handler: "potion_brain_fog"},
 		{Id: "bone_growth_powder", Name: "生骨药粉", Description: "随机1组怪物+40数量，如果是骨卫兵额外+127数量并移除1组非骨卫兵", Rarity: blue, Handler: "potion_bone_growth_powder"},
-		{Id: "fiend_fluid", Name: "脊髓药剂-异魔", Description: "添加1组异魔，使其+31活性", Rarity: white, Effects: []*pb.EffectSpec{{Op: "add", Count: 1, Family: pb.Family_FIEND, Activity: 31}}, Enabled: true},
+		{Id: "fiend_fluid", Name: "脊髓溶液-异魔", Description: "添加1组异魔，使其+31活性", Rarity: white, Effects: []*pb.EffectSpec{{Op: "add", Count: 1, Family: pb.Family_FIEND, Activity: 31}}, Enabled: true},
 	}
 	for _, card := range cards {
 		card.Kind = pb.CardKind_POTION
@@ -177,7 +177,7 @@ func (c *context) applyPotion(handler string, ids []string) {
 		m := getMonster(c.state, ids[0])
 		right := c.potionRight(m.Id)
 		if right != "" {
-			c.transform(right, m.Family, m.Rarity, false, 0)
+			c.transformTo(right, definitionOf(m), "mutated")
 		}
 		c.buff(m.Id, 31, 0)
 		if right != "" {
@@ -228,7 +228,7 @@ func (c *context) applyPotion(handler string, ids []string) {
 	case "potion_holy_water":
 		for _, id := range c.family(pb.Family_AWAKENER) {
 			if getMonster(c.state, id).Rarity == pb.MonsterRarity_BOSS {
-				c.buff(id, 300, 1)
+				c.transform(id, 0, pb.MonsterRarity_BOSS, true, 0)
 			} else {
 				c.transform(id, 0, 0, true, 2)
 			}
@@ -267,7 +267,7 @@ func (c *context) applyPotion(handler string, ids []string) {
 			m := getMonster(c.state, id)
 			c.buff(id, 0, 25)
 			if m.Family == pb.Family_INSECT {
-				c.add(m.Family, m.Rarity, 0, 25, &c.state.EffectRng)
+				c.addMonster(m.Family, m.Rarity, 0, 25, &c.state.EffectRng, definitionOf(m))
 			}
 		}
 	case "potion_brain_fog":

@@ -37,6 +37,11 @@ func TestCatalogMatchesManual(t *testing.T) {
 		}
 		name := strings.SplitN(strings.TrimPrefix(line, "- "), "：", 2)[0]
 		if kind == pb.CardKind_POTION {
+			if strings.HasPrefix(name, "药剂箱(") {
+				name = strings.SplitN(name, ")", 2)[0] + ")"
+				expected[kind][normalize(name)] = true
+				continue
+			}
 			if strings.HasPrefix(name, "稀有药剂箱") {
 				expected[kind]["稀有药剂箱(小)"] = true
 				expected[kind]["稀有药剂箱(大)"] = true
@@ -57,8 +62,6 @@ func TestCatalogMatchesManual(t *testing.T) {
 		}
 		expected[kind][normalize(name)] = true
 	}
-	expected[pb.CardKind_POTION]["普通药剂箱(小)"] = true
-	expected[pb.CardKind_POTION]["普通药剂箱(大)"] = true
 	r := DemoRules()
 	for kind, names := range expected {
 		seen := map[string]bool{}

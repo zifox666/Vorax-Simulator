@@ -76,7 +76,7 @@ func TestAIDecideObservationModeUsesRefreshes(t *testing.T) {
 	r := testRouter(t)
 	obs := `{"phase":"CHOOSING","baseCursor":0,"score":516,"potionRefreshes":0,"toolRefreshes":2,` +
 		`"offer":{"kind":3,"rewardThreshold":0},` +
-		`"cards":[{"id":"claw","name":"栾缩指爪","kind":3,"rarity":0,"playable":true,"targetSets":[[]]}],` +
+		`"cards":[{"id":"claw","name":"挛缩指爪","kind":3,"rarity":0,"playable":true,"targetSets":[[]]}],` +
 		`"slots":[{"index":0,"family":1,"rarity":1,"activity":1,"quantity":36},{"index":1,"family":0,"rarity":0,"activity":0,"quantity":0},{"index":2,"family":0,"rarity":0,"activity":0,"quantity":0},{"index":3,"family":0,"rarity":0,"activity":0,"quantity":0},{"index":4,"family":0,"rarity":0,"activity":0,"quantity":0},{"index":5,"family":0,"rarity":0,"activity":0,"quantity":0}],` +
 		`"rewards":{}}`
 	body := func(o string) string { return `{"observation":` + o + `,"strategy":"random"}` }

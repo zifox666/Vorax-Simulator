@@ -405,6 +405,7 @@ type Monster struct {
 	Rarity        MonsterRarity          `protobuf:"varint,4,opt,name=rarity,proto3,enum=vorax.v1.MonsterRarity" json:"rarity,omitempty"`
 	Activity      int64                  `protobuf:"varint,5,opt,name=activity,proto3" json:"activity,omitempty"`
 	Quantity      int64                  `protobuf:"varint,6,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	Name          string                 `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -479,6 +480,13 @@ func (x *Monster) GetQuantity() int64 {
 		return x.Quantity
 	}
 	return 0
+}
+
+func (x *Monster) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
 }
 
 type Slot struct {
@@ -2141,14 +2149,15 @@ var File_api_game_proto protoreflect.FileDescriptor
 
 const file_api_game_proto_rawDesc = "" +
 	"\n" +
-	"\x0eapi/game.proto\x12\bvorax.v1\"\xd1\x01\n" +
+	"\x0eapi/game.proto\x12\bvorax.v1\"\xe5\x01\n" +
 	"\aMonster\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
 	"\rdefinition_id\x18\x02 \x01(\tR\fdefinitionId\x12(\n" +
 	"\x06family\x18\x03 \x01(\x0e2\x10.vorax.v1.FamilyR\x06family\x12/\n" +
 	"\x06rarity\x18\x04 \x01(\x0e2\x17.vorax.v1.MonsterRarityR\x06rarity\x12\x1a\n" +
 	"\bactivity\x18\x05 \x01(\x03R\bactivity\x12\x1a\n" +
-	"\bquantity\x18\x06 \x01(\x03R\bquantity\"m\n" +
+	"\bquantity\x18\x06 \x01(\x03R\bquantity\x12\x12\n" +
+	"\x04name\x18\a \x01(\tR\x04name\"m\n" +
 	"\x04Slot\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12+\n" +
 	"\amonster\x18\x02 \x01(\v2\x11.vorax.v1.MonsterR\amonster\x12\"\n" +

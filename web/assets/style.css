@@ -544,6 +544,14 @@ h2 {
 .awakener .specimen-symbol {
   color: #639dbd;
 }
+.monster-name {
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  margin-bottom: 4px;
+}
 .family-name {
   font-size: 12px;
   font-weight: 500;

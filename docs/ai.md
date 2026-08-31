@@ -72,7 +72,7 @@ POST /api/v1/ai/decide
 | stageLabel | string | 界面阶段标题（如"药剂选择 3 / 7"） |
 | baseCursor / completedTurns | int | 基础选择进度 / 已完成回合 |
 | score | int64 | 当前分数 |
-| slots | SlotView[6] | 每个培养槽的族、稀有度、活性、数量（0 为空） |
+| slots | SlotView[6] | 每个培养槽的怪物定义 ID、名称、族、稀有度、活性、数量（0 为空） |
 | tools / toolNames | string[] | 已拥有用具 id 与名称 |
 | offer | {kind, rewardThreshold} | 当前候选类别与用具奖励门槛 |
 | cards | CardView[] | 候选卡：id、名称、描述、稀有度、可玩性、合法目标（槽位组合） |

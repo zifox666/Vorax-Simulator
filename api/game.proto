@@ -10,7 +10,7 @@ enum CardKind { CARD_KIND_UNSPECIFIED = 0; UNKNOWN = 1; POTION = 2; TOOL = 3; SC
 enum Phase { PHASE_UNSPECIFIED = 0; PREPARING = 1; CHOOSING = 2; FINISHED = 3; }
 enum ClaimStatus { LOCKED = 0; PENDING = 1; CLAIMED = 2; }
 
-message Monster { string id = 1; string definition_id = 2; Family family = 3; MonsterRarity rarity = 4; int64 activity = 5; int64 quantity = 6; }
+message Monster { string id = 1; string definition_id = 2; Family family = 3; MonsterRarity rarity = 4; int64 activity = 5; int64 quantity = 6; string name = 7; }
 message Slot { int32 index = 1; Monster monster = 2; int64 contribution = 3; }
 message ToolClaim { int64 threshold = 1; ClaimStatus status = 2; }
 message RewardState { repeated JarColor jars = 1; int32 drop_bonus_percent = 2; repeated ToolClaim tool_claims = 3; int64 next_threshold = 4; string next_reward_label = 5; }

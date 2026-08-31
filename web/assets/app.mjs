@@ -97,7 +97,7 @@ createApp({
       animationSpeed.value=speed;
       if(!saveSpeed(speed))error.value='无法保存动画速度，本次设置仍然有效。';
     }
-    const slotLabel=slot=>slot.monster ? `培养槽 ${slot.index+1}，${familyNames[slot.monster.family]}，${monsterRarities[slot.monster.rarity]}，活性 ${slot.monster.activity}，数量 ${slot.monster.quantity}` : `空培养槽 ${slot.index+1}`;
+    const slotLabel=slot=>slot.monster ? `培养槽 ${slot.index+1}，${slot.monster.name || familyNames[slot.monster.family]}，${familyNames[slot.monster.family]}，${monsterRarities[slot.monster.rarity]}，活性 ${slot.monster.activity}，数量 ${slot.monster.quantity}` : `空培养槽 ${slot.index+1}`;
     function canTarget(monster) {
       if(!monster || locked.value || !selectedCard.value)return false;
       if(targets.value.includes(monster.id))return true;

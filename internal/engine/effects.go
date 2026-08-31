@@ -123,6 +123,10 @@ func (c *context) initializeRares() {
 }
 
 func (c *context) add(f pb.Family, r pb.MonsterRarity, a, q int64, rng *uint64) string {
+	return c.addMonster(f, r, a, q, rng, nil)
+}
+
+func (c *context) addMonster(f pb.Family, r pb.MonsterRarity, a, q int64, rng *uint64, definition *monsterDefinition) string {
 	if !c.tick() {
 		return ""
 	}
@@ -143,7 +147,14 @@ func (c *context) add(f pb.Family, r pb.MonsterRarity, a, q int64, rng *uint64) 
 	if r == 0 {
 		r = monsterRarity(rng)
 	}
-	ba, bq := base(r)
+	if definition == nil {
+		definition = pickMonsterDefinition(f, r, rng)
+	}
+	if definition == nil {
+		c.err = fmt.Errorf("INVALID_CONTENT: 怪物定义不存在")
+		return ""
+	}
+	ba, bq := base(definition.rarity)
 	aa, err := checkedAdd(ba, a)
 	if err != nil {
 		c.err = err
@@ -156,7 +167,8 @@ func (c *context) add(f pb.Family, r pb.MonsterRarity, a, q int64, rng *uint64) 
 	}
 	id := fmt.Sprintf("monster-%d", c.state.NextMonsterId)
 	c.state.NextMonsterId++
-	free.Monster = &pb.Monster{Id: id, DefinitionId: fmt.Sprintf("demo-%d-%d", f, r), Family: f, Rarity: r, Activity: aa, Quantity: qq}
+	free.Monster = &pb.Monster{Id: id, Activity: aa, Quantity: qq}
+	definition.identify(free.Monster)
 	c.emit("added", "添加怪物", []string{id}, aa, qq)
 	return id
 }
@@ -200,9 +212,6 @@ func (c *context) remove(id string) {
 }
 
 func (c *context) transform(id string, f pb.Family, r pb.MonsterRarity, awakening bool, levels int32) {
-	if !c.tick() {
-		return
-	}
 	m := getMonster(c.state, id)
 	if m == nil {
 		return
@@ -228,7 +237,22 @@ func (c *context) transform(id string, f pb.Family, r pb.MonsterRarity, awakenin
 			r = monsterRarity(&c.state.EffectRng)
 		}
 	}
-	a, q := base(r)
+	c.transformTo(id, pickMonsterDefinition(f, r, &c.state.EffectRng), kind)
+}
+
+func (c *context) transformTo(id string, definition *monsterDefinition, kind string) {
+	if !c.tick() {
+		return
+	}
+	m := getMonster(c.state, id)
+	if m == nil {
+		return
+	}
+	if definition == nil {
+		c.err = fmt.Errorf("INVALID_CONTENT: 怪物定义不存在")
+		return
+	}
+	a, q := base(definition.rarity)
 	aa, err := checkedAdd(m.Activity, a)
 	if err != nil {
 		c.err = err
@@ -239,8 +263,8 @@ func (c *context) transform(id string, f pb.Family, r pb.MonsterRarity, awakenin
 		c.err = err
 		return
 	}
-	m.Activity, m.Quantity, m.Family, m.Rarity = aa, qq, f, r
-	m.DefinitionId = fmt.Sprintf("demo-%d-%d", f, r)
+	m.Activity, m.Quantity = aa, qq
+	definition.identify(m)
 	c.emit(kind, "保留当前属性并叠加目标基础属性", []string{id}, a, q)
 }
 
@@ -299,7 +323,13 @@ func (c *context) fuse(ids []string, f pb.Family, r pb.MonsterRarity) {
 	}
 	id := fmt.Sprintf("monster-%d", c.state.NextMonsterId)
 	c.state.NextMonsterId++
-	c.state.Slots[dest].Monster = &pb.Monster{Id: id, DefinitionId: fmt.Sprintf("demo-%d-%d", f, r), Family: f, Rarity: r, Activity: a, Quantity: q}
+	definition := pickMonsterDefinition(f, r, &c.state.EffectRng)
+	if definition == nil {
+		c.err = fmt.Errorf("INVALID_CONTENT: 怪物定义不存在")
+		return
+	}
+	c.state.Slots[dest].Monster = &pb.Monster{Id: id, Activity: a, Quantity: q}
+	definition.identify(c.state.Slots[dest].Monster)
 	c.emit("fused", "融合完成；不触发普通移除或添加", append(append([]string{}, ids...), id), 0, 0)
 }
 

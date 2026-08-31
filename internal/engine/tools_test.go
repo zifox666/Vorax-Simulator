@@ -250,12 +250,14 @@ func TestToolMarrowProbabilityAndMutationChain(t *testing.T) {
 		put(c.state, 0, pb.Family_FIEND, pb.MonsterRarity_NORMAL, 1, 36)
 		c.state.EffectRng = seed
 		rng := seed
+		pickMonsterDefinition(pb.Family_BONE, pb.MonsterRarity_MAGIC, &rng)
 		mutates := randomN(&rng, 100) < 75
 		id := c.add(pb.Family_BONE, pb.MonsterRarity_MAGIC, 0, 0, &c.state.EffectRng)
 		m := getMonster(c.state, id)
 		if mutates {
 			success = true
 			rarity := monsterRarity(&rng)
+			pickMonsterDefinition(pb.Family_FIEND, rarity, &rng)
 			activity, quantity := base(rarity)
 			rarities[m.Rarity] = true
 			if m.Family != pb.Family_FIEND || m.Rarity != rarity || m.Activity != 5+activity+35+20+80 || m.Quantity != 24+quantity || c.state.Slots[0].Monster.Activity != 56 || eventCount(c.events, "mutated") != 1 {
