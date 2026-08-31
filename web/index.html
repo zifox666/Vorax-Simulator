@@ -50,6 +50,19 @@
             </button>
           </nav>
           <a
+            class="bili-link"
+            href="https://www.bilibili.com/video/BV1vMN16AEWU"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="B站渴瘾教学视频"
+          >
+            <img
+              class="github-icon"
+              src="/assets/bilibili.png"
+            />
+            <span class="bili-label">渴瘾教学</span>
+          </a>
+          <a
             class="github-link"
             href="https://github.com/zifox666/Vorax-Simulator"
             target="_blank"
@@ -378,20 +391,29 @@
                   :selected-hint="selectedCard ? targetHint : ''"
                   :can-confirm="canConfirm"
                   :busy="busy"
+                  :ai-enabled="aiEnabled"
+                  :ai-loading="aiLoading"
+                  :ai-error="aiError"
+                  :ai-strategy="aiStrategy"
+                  :ai-suggestion="aiSuggestion"
+                  :ai-card-index="aiCardIndex"
+                  :ai-text="aiRecommendationText"
                   @select="selectCard"
                   @refresh="refresh"
                   @skip="skipUnknown"
                   @confirm="confirmChoice"
+                  @toggle-ai="toggleAI"
+                  @ai-strategy="setAIStrategy"
+                  @apply-ai="applyAI"
                 ></choice-panel>
                 <section
                   v-else-if="state.phase==='FINISHED'"
                   class="finished panel"
                 >
                   <div class="eyebrow">EXPERIMENT COMPLETE</div>
-                  <h2>本次实验完成</h2>
+                  <h2>游戏结束</h2>
                   <reward-jars :rewards="state.rewards"></reward-jars>
                   <strong>{{ number(state.score) }}</strong>
-                  <p>最终得分 · {{ state.completedTurns }} 回合</p>
                   <div class="actions">
                     <button
                       v-if="state"
@@ -399,14 +421,14 @@
                       :disabled="busy || !!pending"
                       @click="setupOpen=true"
                     >
-                      下一回合
+                      新的开始
                     </button>
                     <button
                       class="button secondary"
                       :disabled="busy || !!pending"
                       @click="repeatRun(record)"
                     >
-                      再试一次</button
+                      数据重演</button
                     >
                     <button class="button secondary" @click="showHistory">
                       历史记录

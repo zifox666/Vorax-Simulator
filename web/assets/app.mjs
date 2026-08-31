@@ -4,7 +4,7 @@ import TermText, { FAMILY_NAMES, FAMILY_SYMBOLS } from './term-text.mjs';
 import RewardJars from './reward-jars.mjs';
 import { SPEEDS, readSpeed, saveSpeed, buildSteps, createPlayer, withContributions, totalContribution, eventLabel } from './animation.mjs';
 
-const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = window.Vue;
+const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = window.Vue;
 
 createApp({
   components: { ChoicePanel, TermText, RewardJars },
@@ -13,6 +13,16 @@ createApp({
     const busy=ref(false), ready=ref(false), connected=ref(false), pending=ref(null);
     const error=ref(''), message=ref(''), setupOpen=ref(false), pet=ref(0), seedInput=ref('');
     const selectedIndex=ref(-1), targets=ref([]);
+    // —— AI 推荐 ——
+    const aiStorageKey='vorax-ai-preference';
+    const aiEnabled=ref(false), aiStrategy=ref('sampler'), aiSuggestion=ref(null), aiLoading=ref(false), aiError=ref('');
+    const aiReqSeq=ref(0);
+    try {
+      const saved=JSON.parse(localStorage.getItem(aiStorageKey)||'null');
+      if(saved && typeof saved.enabled==='boolean') aiEnabled.value=saved.enabled;
+      if(saved && ['random','greedy','sampler'].includes(saved.strategy)) aiStrategy.value=saved.strategy;
+    } catch {}
+    const saveAI=()=>{try{localStorage.setItem(aiStorageKey,JSON.stringify({enabled:aiEnabled.value,strategy:aiStrategy.value}));}catch{}};
     const themeStorageKey='vorax-theme-preference';
     const systemTheme=window.matchMedia?.('(prefers-color-scheme: dark)');
     const readThemePreference=()=>{
@@ -112,6 +122,63 @@ createApp({
         throw e;
       } finally {clearTimeout(timer);}
     }
+    // —— AI 推荐：只把当前 UI 可见存档交给后端 AI 端点，返回建议动作 ——
+    // 注意：/ai/decide 是只读决策，busy/pending（结算/动画中）也可以请求，
+    // 因此这里不做 locked 拦截 —— 否则"确认选择后 busy 仍为真"会漏掉下一轮建议。
+    async function aiRecommend() {
+      if(!record.value || !state.value || state.value.phase==='FINISHED') return;
+      const seq=++aiReqSeq.value, revision=state.value.revision, token=record.value.stateToken;
+      aiLoading.value=true; aiError.value=''; aiSuggestion.value=null;
+      try {
+        const data=await api('/api/v1/ai/decide',{stateToken:token,strategy:aiStrategy.value,rollouts:12});
+        if(seq!==aiReqSeq.value || revision!==state.value?.revision) return; // 过期结果丢弃
+        aiSuggestion.value=data;
+      } catch(e) {
+        if(seq===aiReqSeq.value) aiError.value=e.message;
+      } finally {
+        if(seq===aiReqSeq.value) aiLoading.value=false;
+      }
+    }
+    const toggleAI=()=>{
+      aiEnabled.value=!aiEnabled.value; saveAI();
+      if(aiEnabled.value) aiRecommend(); else {aiSuggestion.value=null; aiError.value='';}
+    };
+    const setAIStrategy=(s)=>{aiStrategy.value=s; saveAI(); if(aiEnabled.value) aiRecommend();};
+    const aiCardIndex=computed(()=>{
+      const a=aiSuggestion.value?.action;
+      if(!a || a.type!=='choose' || !view.value) return -1;
+      return view.value.cards.findIndex(c=>c.definition.id===a.cardId);
+    });
+    const aiRecommendationText=computed(()=>{
+      const a=aiSuggestion.value?.action;
+      if(!a) return '';
+      if(a.type==='choose'){
+        const card=view.value?.cards.find(c=>c.definition.id===a.cardId);
+        const slots=(a.targetSlots||[]).map(i=>String(i+1).padStart(2,'0')).join(' · ');
+        return `推荐「${card?.definition.name||a.cardId}」`+(slots?`，目标槽 ${slots}`:'，无需目标');
+      }
+      if(a.type==='refresh') return '建议刷新当前候选';
+      if(a.type==='skip_unknown') return '建议跳过未知器具';
+      return '';
+    });
+    const applyAI=()=>{
+      const a=aiSuggestion.value?.action; if(!a || locked.value) return;
+      if(a.type==='choose'){
+        const idx=aiCardIndex.value;
+        if(idx<0) return;
+        selectedIndex.value=idx;
+        targets.value=(a.targetSlots||[]).map(i=>state.value.slots[i]?.monster?.id).filter(Boolean);
+        message.value='已按 AI 建议预选，确认后执行。';
+      } else if(a.type==='refresh'){ refresh(); }
+      else if(a.type==='skip_unknown'){ skipUnknown(); }
+    };
+    // 候选变化时（若开启）自动重新请求 AI 建议。
+    // 用 view（而非 record）作为依赖：动画播放结束后 view 回到最新存档才会触发，
+    // 此时 record.stateToken 已是最新 revision，请求必然针对当前候选。
+    watch(
+      ()=>view.value?.state?.offer?.id+'|'+state.value?.revision,
+      ()=>{ if(aiEnabled.value) aiRecommend(); }
+    );
     const refreshLocal=async()=>{history.value=await store.listRuns();pending.value=await store.getPending();};
     async function applyPending(p) {
       const response=await api(p.path,p.request);
@@ -206,6 +273,6 @@ createApp({
       catch(e){error.value=`本地存储初始化失败：${e.message}。请使用允许网站存储的浏览器，通过 localhost 或 HTTPS 访问。`;ready.value=false;}
     });
     onUnmounted(()=>{player.cancel();channel?.close();systemTheme?.removeEventListener?.('change',onSystemThemeChange);});
-    return {page,record,profile,history,busy,ready,connected,pending,error,message,setupOpen,pet,seedInput,selectedIndex,targets,themePreference,themeOpen,themeIcon,setTheme,state,view,selectedCard,locked,occupied,canConfirm,targetHint,savedLabel,familyNames,familySymbols,monsterRarities,potionRarities,kindNames,number,date,cardIcon,slotLabel,canTarget,selectCard,toggleTarget,startRun,repeatRun,refresh,skipUnknown,confirmChoice,retryPending,restoreCurrent,showHistory,resumeRun,verifyRun,copySeed,SPEEDS,animationSpeed,animating,animationFrame,activeEffect,effectStyle,slotEffect,slotEffectClass,effectDelta,signed,setAnimationSpeed,visibleEvents,eventLabel,eventSource};
+    return {page,record,profile,history,busy,ready,connected,pending,error,message,setupOpen,pet,seedInput,selectedIndex,targets,themePreference,themeOpen,themeIcon,setTheme,state,view,selectedCard,locked,occupied,canConfirm,targetHint,savedLabel,familyNames,familySymbols,monsterRarities,potionRarities,kindNames,number,date,cardIcon,slotLabel,canTarget,selectCard,toggleTarget,startRun,repeatRun,refresh,skipUnknown,confirmChoice,retryPending,restoreCurrent,showHistory,resumeRun,verifyRun,copySeed,SPEEDS,animationSpeed,animating,animationFrame,activeEffect,effectStyle,slotEffect,slotEffectClass,effectDelta,signed,setAnimationSpeed,visibleEvents,eventLabel,eventSource,aiEnabled,aiStrategy,aiSuggestion,aiLoading,aiError,toggleAI,setAIStrategy,applyAI,aiRecommendationText,aiCardIndex};
   }
 }).mount('#app');

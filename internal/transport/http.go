@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"vorax/internal/ai"
 	"vorax/internal/application"
 	pb "vorax/internal/protocol"
 	"vorax/internal/storage"
@@ -65,6 +66,50 @@ func Router(svc *application.Service, cache *storage.Cache, assets http.FileSyst
 		return svc.Restore(c.Param("id"), m.(*pb.RestoreRequest))
 	}))
 	api.POST("/replays/verify", endpoint(nil, func() proto.Message { return new(pb.ReplayRequest) }, func(c *gin.Context, m proto.Message) (proto.Message, error) { return svc.Replay(m.(*pb.ReplayRequest)) }))
+	// 有限信息 AI 决策：AI 只能看到 UI 渲染内容（Observation），看不到 seed/RNG。
+	// 两种调用方式：
+	//   1. stateToken 模式：服务端从签名存档构建观察（推荐，信息边界由服务端保证）。
+	//   2. observation 模式：调用方直接传入观察 JSON（适合外部研究脚本）。
+	api.POST("/ai/decide", func(c *gin.Context) {
+		var req struct {
+			StateToken string        `json:"stateToken"`
+			Observation *ai.Observation `json:"observation"`
+			Strategy   string        `json:"strategy"`
+			Samples    int           `json:"samples"`
+			Rollouts   int           `json:"rollouts"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"code": "INVALID_JSON", "message": "请求体不符合 AI 接口结构"})
+			return
+		}
+		if req.Strategy == "" {
+			req.Strategy = string(ai.StrategySampler)
+		}
+		var (
+			act *ai.Action
+			obs *ai.Observation
+			err error
+		)
+		if req.StateToken != "" {
+			act, obs, err = svc.AIDecide(req.StateToken, ai.Strategy(req.Strategy), ai.Params{Samples: req.Samples, Rollouts: req.Rollouts})
+		} else if req.Observation != nil {
+			obs = req.Observation
+			act, err = ai.Decide(obs, ai.Strategy(req.Strategy), ai.Params{Samples: req.Samples, Rollouts: req.Rollouts})
+		} else {
+			c.JSON(400, gin.H{"code": "INVALID_INPUT", "message": "需要 stateToken 或 observation"})
+			return
+		}
+		if err != nil {
+			code := application.ErrorCode(err)
+			if code == "STALE_STATE" || code == "STALE_OFFER" {
+				c.JSON(409, gin.H{"code": code, "message": err.Error()})
+				return
+			}
+			c.JSON(400, gin.H{"code": "AI_DECIDE_FAILED", "message": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"action": act, "strategy": req.Strategy, "observation": obs})
+	})
 	r.NoRoute(func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet || strings.HasPrefix(c.Request.URL.Path, "/api/") {
 			c.Status(404)

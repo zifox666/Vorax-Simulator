@@ -255,7 +255,7 @@ func TestToolMarrowProbabilityAndMutationChain(t *testing.T) {
 		m := getMonster(c.state, id)
 		if mutates {
 			success = true
-			rarity := pb.MonsterRarity(1 + randomN(&rng, 4))
+			rarity := monsterRarity(&rng)
 			activity, quantity := base(rarity)
 			rarities[m.Rarity] = true
 			if m.Family != pb.Family_FIEND || m.Rarity != rarity || m.Activity != 5+activity+35+20+80 || m.Quantity != 24+quantity || c.state.Slots[0].Monster.Activity != 56 || eventCount(c.events, "mutated") != 1 {

@@ -70,6 +70,83 @@ func TestHTTPProtoJSONAndRestore(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 }
+// TestAIDecideObservationModeUsesRefreshes 验证 observation 模式：外部请求传入的
+// 剩余刷新次数（药剂/用具分开）被正确使用——用具候选 + toolRefreshes=0 时不可能返回刷新。
+func TestAIDecideObservationModeUsesRefreshes(t *testing.T) {
+	r := testRouter(t)
+	obs := `{"phase":"CHOOSING","baseCursor":0,"score":516,"potionRefreshes":0,"toolRefreshes":2,` +
+		`"offer":{"kind":3,"rewardThreshold":0},` +
+		`"cards":[{"id":"claw","name":"栾缩指爪","kind":3,"rarity":0,"playable":true,"targetSets":[[]]}],` +
+		`"slots":[{"index":0,"family":1,"rarity":1,"activity":1,"quantity":36},{"index":1,"family":0,"rarity":0,"activity":0,"quantity":0},{"index":2,"family":0,"rarity":0,"activity":0,"quantity":0},{"index":3,"family":0,"rarity":0,"activity":0,"quantity":0},{"index":4,"family":0,"rarity":0,"activity":0,"quantity":0},{"index":5,"family":0,"rarity":0,"activity":0,"quantity":0}],` +
+		`"rewards":{}}`
+	body := func(o string) string { return `{"observation":` + o + `,"strategy":"random"}` }
+
+	// toolRefreshes=0：用具候选没有刷新动作，random 只能选卡。
+	w := post(r, "/api/v1/ai/decide", body(strings.Replace(obs, `"toolRefreshes":2`, `"toolRefreshes":0`, 1)), "")
+	if w.Code != 200 {
+		t.Fatalf("tool=0: %d %s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Action struct {
+			Type string `json:"type"`
+		} `json:"action"`
+		Observation struct {
+			ToolRefreshes   int32 `json:"toolRefreshes"`
+			PotionRefreshes int32 `json:"potionRefreshes"`
+		} `json:"observation"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Action.Type != "choose" {
+		t.Errorf("toolRefreshes=0 时不应返回刷新，得到 %q", resp.Action.Type)
+	}
+	if resp.Observation.ToolRefreshes != 0 || resp.Observation.PotionRefreshes != 0 {
+		t.Errorf("响应观察应回显传入的刷新次数: tool=%d potion=%d", resp.Observation.ToolRefreshes, resp.Observation.PotionRefreshes)
+	}
+
+	// toolRefreshes=2：用具候选可以刷新。
+	w = post(r, "/api/v1/ai/decide", body(obs), "")
+	if w.Code != 200 {
+		t.Fatalf("tool=2: %d %s", w.Code, w.Body.String())
+	}
+	resp = struct {
+		Action struct {
+			Type string `json:"type"`
+		} `json:"action"`
+		Observation struct {
+			ToolRefreshes   int32 `json:"toolRefreshes"`
+			PotionRefreshes int32 `json:"potionRefreshes"`
+		} `json:"observation"`
+	}{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Action.Type != "choose" && resp.Action.Type != "refresh" {
+		t.Errorf("toolRefreshes=2 时应能选卡或刷新，得到 %q", resp.Action.Type)
+	}
+
+	// 药剂候选 + potionRefreshes=0（即使 toolRefreshes=2）：不可刷新。
+	obsPotion := strings.Replace(obs, `"offer":{"kind":3,"rewardThreshold":0}`, `"offer":{"kind":2,"rewardThreshold":0}`, 1)
+	obsPotion = strings.Replace(obsPotion, `"potionRefreshes":0`, `"potionRefreshes":0`, 1)
+	obsPotion = strings.Replace(obsPotion, `"toolRefreshes":2`, `"toolRefreshes":2`, 1)
+	w = post(r, "/api/v1/ai/decide", body(obsPotion), "")
+	if w.Code != 200 {
+		t.Fatalf("potion=0: %d %s", w.Code, w.Body.String())
+	}
+	var resp2 struct {
+		Action struct {
+			Type string `json:"type"`
+		} `json:"action"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp2); err != nil {
+		t.Fatal(err)
+	}
+	if resp2.Action.Type != "choose" {
+		t.Errorf("药剂候选且 potionRefreshes=0 时不应返回刷新，得到 %q", resp2.Action.Type)
+	}
+}
+
 func TestHTTPRejectsUnknownFieldsBadOriginAndOversize(t *testing.T) {
 	r := testRouter(t)
 	for _, tc := range []struct {

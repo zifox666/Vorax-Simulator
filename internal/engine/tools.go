@@ -228,7 +228,7 @@ func (c *context) applyTool(handler string, event *pb.GameEvent) {
 			ids := c.family(pb.Family_INSECT)
 			if len(ids) >= 2 {
 				selected := c.toolSample(ids, 2)
-				rarity := pb.MonsterRarity(1 + randomN(&c.state.EffectRng, 4))
+				rarity := monsterRarity(&c.state.EffectRng)
 				c.fuse(selected, pb.Family_INSECT, rarity)
 			}
 		}

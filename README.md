@@ -2,6 +2,18 @@
 
 对渴瘾玩法的简单模拟
 
+## 内置 AI 模块
+
+服务端内置一个"有限信息"AI 决策模块（`internal/ai`）：它只能看到玩家在 UI 上能看到的内容，
+看不到 seed 与 RNG 流，用于研究"隐藏信息下算法能否打出最优解"。接口与说明见
+[`docs/ai.md`](docs/ai.md)：
+
+```powershell
+POST /api/v1/ai/decide
+# { "stateToken": "...", "strategy": "sampler", "rollouts": 16 }
+# → { "action": {"type":"choose","cardId":"...","targetSlots":[2]}, "observation": {...} }
+```
+
 ## 开始使用
 
 推荐使用 Docker
@@ -61,6 +73,10 @@ docker compose -f docker-compose.example.yaml up -d --build
 ```
 
 `PUBLIC_ORIGIN` 必须与浏览器地址栏中的协议和域名完全一致，不要包含路径或末尾斜杠。它让服务在 TLS 由反向代理终止时仍能正确验证同源请求。
+
+## 致谢
+
+感谢 B站 UP @明玄丶 的教学视频（[《渴瘾玩法教学》](https://www.bilibili.com/video/BV1vMN16AEWU)）与卡牌整理，本模拟器基于其内容参考完善。
 
 ## 免责声明与许可
 

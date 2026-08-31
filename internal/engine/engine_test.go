@@ -22,6 +22,23 @@ func fixture(t *testing.T) (*pb.GameState, *Rules) {
 	s.Offer = &pb.Offer{Id: "fixture", Kind: pb.CardKind_POTION}
 	return s, r
 }
+
+// TestMonsterRarityWeights 精确验证怪物稀有度权重 45/30/20/5：0..99999 个均匀随机数
+// 每个余数恰好出现 1000 次，因此各稀有度计数必须精确等于权重 × 1000。
+func TestMonsterRarityWeights(t *testing.T) {
+	counts := [4]int{}
+	for roll := 0; roll < 100000; roll++ {
+		rarity := monsterRarityAt(roll % 100)
+		if rarity < pb.MonsterRarity_NORMAL || rarity > pb.MonsterRarity_BOSS {
+			t.Fatalf("invalid rarity at %d", roll)
+		}
+		counts[rarity-1]++
+	}
+	want := [4]int{45000, 30000, 20000, 5000}
+	if counts != want {
+		t.Fatalf("rarity distribution %v, want %v", counts, want)
+	}
+}
 func put(s *pb.GameState, i int, f pb.Family, r pb.MonsterRarity, a, q int64) string {
 	id := fmt.Sprintf("monster-%d", i+1)
 	s.Slots[i].Monster = &pb.Monster{Id: id, Family: f, Rarity: r, Activity: a, Quantity: q}

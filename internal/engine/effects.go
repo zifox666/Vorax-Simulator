@@ -76,6 +76,29 @@ func base(r pb.MonsterRarity) (int64, int64) {
 	return 0, 0
 }
 
+// monsterRarityWeights 是随机生成怪物的稀有度权重：普通 45%、魔法 30%、稀有 20%、首领 5%。
+// 卡牌未显式指定稀有度（r == 0）时，初始、添加、变异统一按此权重抽取。
+var monsterRarityWeights = [4]int{45, 30, 20, 5}
+
+// monsterRarityAt 把 0..99 的均匀随机数映射到稀有度桶，边界与权重一一对应，便于精确测试。
+func monsterRarityAt(roll int) pb.MonsterRarity {
+	for i, w := range monsterRarityWeights {
+		if roll < w {
+			return pb.MonsterRarity(i + 1)
+		}
+		roll -= w
+	}
+	return pb.MonsterRarity_BOSS
+}
+
+func monsterRarity(rng *uint64) pb.MonsterRarity {
+	total := 0
+	for _, w := range monsterRarityWeights {
+		total += w
+	}
+	return monsterRarityAt(randomN(rng, total))
+}
+
 func (c *context) initialize(count int, family pb.Family, bones bool) {
 	for i := 0; i < count; i++ {
 		f := family
@@ -108,7 +131,7 @@ func (c *context) add(f pb.Family, r pb.MonsterRarity, a, q int64, rng *uint64) 
 		f = pb.Family(1 + randomN(rng, 4))
 	}
 	if r == 0 {
-		r = pb.MonsterRarity(1 + randomN(rng, 4))
+		r = monsterRarity(rng)
 	}
 	ba, bq := base(r)
 	aa, err := checkedAdd(ba, a)
@@ -192,7 +215,7 @@ func (c *context) transform(id string, f pb.Family, r pb.MonsterRarity, awakenin
 			f = pb.Family(1 + randomN(&c.state.EffectRng, 4))
 		}
 		if r == 0 {
-			r = pb.MonsterRarity(1 + randomN(&c.state.EffectRng, 4))
+			r = monsterRarity(&c.state.EffectRng)
 		}
 	}
 	a, q := base(r)

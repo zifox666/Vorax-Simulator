@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"google.golang.org/protobuf/proto"
+	"vorax/internal/ai"
 	"vorax/internal/engine"
 	pb "vorax/internal/protocol"
 )
@@ -42,16 +43,24 @@ func (svc *Service) Create(req *pb.CreateRunRequest) (*pb.RunResponse, error) {
 	return svc.response(s, nil, req.RequestId)
 }
 
-func (svc *Service) restore(token, runID string) (*pb.GameState, error) {
+func (svc *Service) open(token string) (*pb.GameState, error) {
 	s, err := svc.Signer.Open(token)
+	if err != nil {
+		return nil, err
+	}
+	if err := engine.ValidateState(s, svc.Rules); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func (svc *Service) restore(token, runID string) (*pb.GameState, error) {
+	s, err := svc.open(token)
 	if err != nil {
 		return nil, err
 	}
 	if s.RunId != runID {
 		return nil, fmt.Errorf("INVALID_TOKEN: 存档不属于此对局")
-	}
-	if err := engine.ValidateState(s, svc.Rules); err != nil {
-		return nil, err
 	}
 	return s, nil
 }
@@ -62,6 +71,18 @@ func (svc *Service) Restore(runID string, req *pb.RestoreRequest) (*pb.RunRespon
 		return nil, err
 	}
 	return svc.response(s, nil, "")
+}
+
+// AIDecide 从签名存档恢复真实状态，但只把"UI 可见观察"交给有限信息 AI，
+// 返回 AI 建议的动作与它实际看到的观察（观察中不含 seed / RNG）。
+func (svc *Service) AIDecide(stateToken string, strategy ai.Strategy, params ai.Params) (*ai.Action, *ai.Observation, error) {
+	s, err := svc.open(stateToken)
+	if err != nil {
+		return nil, nil, err
+	}
+	obs := ai.FromGameState(s)
+	act, err := ai.Decide(obs, strategy, params)
+	return act, obs, err
 }
 
 func (svc *Service) Command(runID string, req *pb.CommandRequest) (*pb.RunResponse, error) {

@@ -1421,6 +1421,152 @@ td small {
   }
 }
 
+/* —— AI 推荐（遵循 DESIGN：pill 按钮、indigo CTA、hairline 边框、tnum、软 indigo 标签） —— */
+.choice-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.ai-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid #d9d2ff;
+  background: var(--white);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ai-toggle:hover:not(:disabled) {
+  background: #f5f2ff;
+}
+.ai-toggle .ai-toggle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c9c3f5;
+  transition: background 0.18s, box-shadow 0.18s;
+}
+.ai-toggle.on {
+  background: var(--primary);
+  color: var(--on-primary, #fff);
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px #533afd30;
+}
+.ai-toggle.on .ai-toggle-dot {
+  background: #cfe0ff;
+  box-shadow: 0 0 0 3px #533afd40;
+}
+.ai-toggle:disabled {
+  opacity: 0.43;
+  cursor: default;
+}
+.segmented-mini {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  background: var(--canvas);
+  padding: 3px;
+  border-radius: 999px;
+  gap: 3px;
+}
+.segmented-mini button {
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.segmented-mini button.selected {
+  background: var(--white);
+  color: var(--primary);
+  box-shadow: 0 1px 6px #00377014;
+}
+.ai-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 13px;
+  margin-bottom: 14px;
+  border: 1px solid #d9d2ff;
+  border-radius: 10px;
+  background: #f6f3ff;
+  color: var(--ink-secondary, #273951);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.ai-banner.error {
+  color: #a72e4a;
+  background: #fff0f4;
+  border-color: #f1cfd9;
+}
+.ai-banner.loading {
+  color: var(--muted);
+}
+.ai-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+.ai-idea {
+  color: var(--primary);
+  font-size: 13px;
+}
+.ai-spinner {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border-radius: 50%;
+  border: 2px solid #c9c3f5;
+  border-top-color: var(--primary);
+  animation: ai-spin 0.8s linear infinite;
+}
+@keyframes ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.ai-strategy-tag {
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  color: var(--primary-deep);
+  background: #b9b9f9;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.ai-apply {
+  font-size: 11px;
+  padding: 6px 12px;
+  min-height: 30px;
+}
+.card.ai-recommended {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary), 0 5px 15px #533afd14;
+}
+.ai-card-badge {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 1;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: var(--primary-deep);
+  background: #b9b9f9;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px #533afd1f;
+}
+
+
 /* Three-column working surface: score / board and cards / tools and log. */
 .topbar,
 main {
@@ -2507,6 +2653,39 @@ html[data-theme="dark"] .github-icon-light {
 html[data-theme="dark"] .github-icon-dark {
   display: block;
 }
+.bili-link {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px 8px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.bili-link:hover {
+  border-color: #00a1d6;
+  color: #00a1d6;
+}
+.bili-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #00a1d6;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
 .theme-control {
   position: relative;
 }
@@ -2737,6 +2916,14 @@ html[data-theme="dark"] .score .term-icon-quantity {
     padding: 8px;
   }
   .theme-toggle-label {
+    display: none;
+  }
+  .bili-link {
+    width: 40px;
+    padding: 8px;
+    justify-content: center;
+  }
+  .bili-link .bili-label {
     display: none;
   }
 }
