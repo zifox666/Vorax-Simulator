@@ -112,6 +112,16 @@ func (c *context) initialize(count int, family pb.Family, bones bool) {
 	}
 }
 
+// initializeRares 是稀有怪堆的初始化：四个流派各一组稀有怪物，彼此种群不同。
+func (c *context) initializeRares() {
+	for family := pb.Family_BONE; family <= pb.Family_INSECT; family++ {
+		c.add(family, pb.MonsterRarity_RARE, 0, 0, &c.state.InitRng)
+	}
+	if c.err == nil {
+		c.state.OpeningToolFamily = initialToolFamily(c.state)
+	}
+}
+
 func (c *context) add(f pb.Family, r pb.MonsterRarity, a, q int64, rng *uint64) string {
 	if !c.tick() {
 		return ""

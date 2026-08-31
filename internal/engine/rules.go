@@ -37,6 +37,7 @@ func DemoRules() *Rules {
 		&pb.CardDefinition{Id: "unknown_six", Name: "截肢标本", Description: "初始怪物改为随机 6 组怪物。", Kind: pb.CardKind_UNKNOWN, Handler: "initial_six", Enabled: true},
 		&pb.CardDefinition{Id: "unknown_insects", Name: "虫虫虫虫", Description: "初始怪物改为 4 组蛊虫。", Kind: pb.CardKind_UNKNOWN, Handler: "initial_insects", Enabled: true},
 		&pb.CardDefinition{Id: "unknown_bones", Name: "蒸骨坩埚", Description: "初始怪物改为 2 组骨卫兵与其他2组怪物。", Kind: pb.CardKind_UNKNOWN, Handler: "initial_bones", Enabled: true},
+		&pb.CardDefinition{Id: "unknown_rares", Name: "稀有怪堆", Description: "初始怪物改为 4 组各不相同种群的稀有怪物。", Kind: pb.CardKind_UNKNOWN, Handler: "initial_rares", Enabled: true},
 	)
 	r.Cards = append(r.Cards, potionCards()...)
 	r.Cards = append(r.Cards, toolCards()...)
@@ -54,7 +55,7 @@ func (r *Rules) Validate() error {
 		return fmt.Errorf("VERSION_UNAVAILABLE: 不支持的规则或内容版本")
 	}
 	seen := map[string]bool{}
-	known := map[string]bool{"": true, "initial_six": true, "initial_insects": true, "initial_bones": true}
+	known := map[string]bool{"": true, "initial_six": true, "initial_insects": true, "initial_bones": true, "initial_rares": true}
 	for _, card := range append(potionCards(), toolCards()...) {
 		known[card.Handler] = true
 	}
