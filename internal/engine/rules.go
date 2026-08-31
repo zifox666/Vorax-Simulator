@@ -10,6 +10,7 @@ import (
 // Change either value only when publishing a new, immutable rules or content set.
 const RulesVersion = "rules-v1"
 const ContentVersion = "cards-v1"
+
 // RNGVersion identifies the random-draw semantics. Bump it whenever draw
 // behavior changes (e.g. distribution or consumption), so old saves fail
 // validation instead of replaying differently than the player saw.
@@ -35,7 +36,7 @@ func DemoRules() *Rules {
 	r.Cards = append(r.Cards,
 		&pb.CardDefinition{Id: "unknown_six", Name: "截肢标本", Description: "初始怪物改为随机 6 组怪物。", Kind: pb.CardKind_UNKNOWN, Handler: "initial_six", Enabled: true},
 		&pb.CardDefinition{Id: "unknown_insects", Name: "虫虫虫虫", Description: "初始怪物改为 4 组蛊虫。", Kind: pb.CardKind_UNKNOWN, Handler: "initial_insects", Enabled: true},
-		&pb.CardDefinition{Id: "unknown_bones", Name: "蒸骨坩埚", Description: "初始怪物改为 2 组骨卫兵与其他怪物。", Kind: pb.CardKind_UNKNOWN, Handler: "initial_bones", Enabled: true},
+		&pb.CardDefinition{Id: "unknown_bones", Name: "蒸骨坩埚", Description: "初始怪物改为 2 组骨卫兵与其他2组怪物。", Kind: pb.CardKind_UNKNOWN, Handler: "initial_bones", Enabled: true},
 	)
 	r.Cards = append(r.Cards, potionCards()...)
 	r.Cards = append(r.Cards, toolCards()...)

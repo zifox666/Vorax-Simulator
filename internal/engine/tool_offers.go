@@ -43,6 +43,11 @@ func initialToolFamily(s *pb.GameState) pb.Family {
 	if len(leaders) == 1 {
 		return leaders[0]
 	}
+	for _, family := range leaders {
+		if family == pb.Family_AWAKENER {
+			return pb.Family_AWAKENER
+		}
+	}
 	return leaders[randomN(&s.InitRng, len(leaders))]
 }
 
@@ -60,9 +65,9 @@ func openingToolWeights(pool []*pb.CardDefinition, family pb.Family) ([]int, int
 		weight := 1
 		if matching > 0 && other > 0 {
 			if card.CoreFamily == family {
-				weight = 3 * other
+				weight = 11 * other
 			} else {
-				weight = 7 * matching
+				weight = 9 * matching
 			}
 		}
 		weights[i] = weight

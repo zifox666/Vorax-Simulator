@@ -92,7 +92,7 @@ func Apply(state *pb.GameState, cmd *pb.Command, r *Rules) (*pb.GameState, []*pb
 			case "initial_insects":
 				c.initialize(4, pb.Family_INSECT, false)
 			case "initial_bones":
-				c.initialize(3, pb.Family_BONE, true)
+				c.initialize(4, pb.Family_BONE, true)
 			default:
 				return nil, nil, fmt.Errorf("INVALID_CARD: 未知初始化处理器")
 			}

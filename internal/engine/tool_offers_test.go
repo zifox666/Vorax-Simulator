@@ -5,8 +5,9 @@ import (
 	"sort"
 	"testing"
 
-	"google.golang.org/protobuf/proto"
 	pb "vorax/internal/protocol"
+
+	"google.golang.org/protobuf/proto"
 )
 
 func corePool(r *Rules) []*pb.CardDefinition {
@@ -75,7 +76,7 @@ func TestOpeningToolWeightsHaveExactGroupShares(t *testing.T) {
 				}
 			}
 			if matching > 0 && other > 0 {
-				if matching*10 != total*3 || other*10 != total*7 {
+				if matching*20 != total*11 || other*20 != total*9 {
 					t.Fatalf("incorrect group shares: %d/%d of %d", matching, other, total)
 				}
 			} else if total != len(pool) {
@@ -117,6 +118,12 @@ func TestInitialToolFamilyRandomizesOnlyTiedLeaders(t *testing.T) {
 				leaders = append(leaders, family)
 			}
 		}
+		awakenerTied := false
+		for _, family := range leaders {
+			if family == pb.Family_AWAKENER {
+				awakenerTied = true
+			}
+		}
 		for seed := uint64(0); seed < 128; seed++ {
 			s, _ := fixture(t)
 			for i, family := range layout {
@@ -124,14 +131,23 @@ func TestInitialToolFamilyRandomizesOnlyTiedLeaders(t *testing.T) {
 			}
 			s.InitRng = seed
 			expectedRNG := seed
-			expected := leaders[randomN(&expectedRNG, len(leaders))]
+			expected := leaders[0]
+			if awakenerTied {
+				expected = pb.Family_AWAKENER
+			} else {
+				expected = leaders[randomN(&expectedRNG, len(leaders))]
+			}
 			family := initialToolFamily(s)
 			if family != expected || s.InitRng != expectedRNG || counts[family] != most {
 				t.Fatalf("invalid tie selection: %v", family)
 			}
 			seen[family] = true
 		}
-		if len(seen) != len(leaders) {
+		if awakenerTied {
+			if len(seen) != 1 || !seen[pb.Family_AWAKENER] {
+				t.Fatalf("tie involving awakener must deterministically prefer it: %v", seen)
+			}
+		} else if len(seen) != len(leaders) {
 			t.Fatalf("not all tied leaders were selected: %v", seen)
 		}
 	}
