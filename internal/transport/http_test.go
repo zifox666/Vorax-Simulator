@@ -17,13 +17,21 @@ import (
 )
 
 func testRouter(t *testing.T) http.Handler {
+	return testRouterWithPublicOrigin(t, "")
+}
+
+func testRouterWithPublicOrigin(t *testing.T, publicOrigin string) http.Handler {
 	t.Helper()
 	signer, err := application.NewSigner("v1", bytes.Repeat([]byte{4}, 32))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var assets fs.FS = fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("app")}}
-	return Router(&application.Service{Rules: engine.DemoRules(), Signer: signer}, nil, http.FS(assets))
+	r, err := Router(&application.Service{Rules: engine.DemoRules(), Signer: signer}, nil, http.FS(assets), publicOrigin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }
 func post(r http.Handler, path, body, origin string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest("POST", path, strings.NewReader(body))
@@ -72,6 +80,25 @@ func TestHTTPRejectsUnknownFieldsBadOriginAndOversize(t *testing.T) {
 		if w.Code != tc.status {
 			t.Fatalf("want %d got %d", tc.status, w.Code)
 		}
+	}
+}
+
+func TestHTTPAcceptsConfiguredPublicOriginBehindProxy(t *testing.T) {
+	r := testRouterWithPublicOrigin(t, "https://ky.dscan.icu/")
+	w := post(r, "/api/v1/runs", `{"userId":"proxy-user","requestId":"proxy-request"}`, "https://ky.dscan.icu")
+	if w.Code != http.StatusOK {
+		t.Fatalf("configured public origin rejected: %d %s", w.Code, w.Body.String())
+	}
+	w = post(r, "/api/v1/runs", `{}`, "https://other.example")
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("unexpected origin accepted: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouterRejectsInvalidPublicOrigin(t *testing.T) {
+	_, err := Router(nil, nil, nil, "https://ky.dscan.icu/path")
+	if err == nil {
+		t.Fatal("invalid public origin was accepted")
 	}
 }
 

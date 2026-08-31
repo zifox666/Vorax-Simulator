@@ -51,6 +51,17 @@ go run ./cmd/server
 
 界面会优先加载 Vue 的固定版本 CDN；网络不可用或加载超时时，会自动使用项目内置副本。继续对局仍需要本地服务保持运行。
 
+### 通过 HTTPS 域名访问
+
+若使用 Nginx、Caddy、Cloudflare 等反向代理为网站提供 HTTPS，请在启动服务的环境中设置准确的公开地址，再启动容器：
+
+```powershell
+$env:PUBLIC_ORIGIN='https://ky.dscan.icu'
+docker compose -f docker-compose.example.yaml up -d --build
+```
+
+`PUBLIC_ORIGIN` 必须与浏览器地址栏中的协议和域名完全一致，不要包含路径或末尾斜杠。它让服务在 TLS 由反向代理终止时仍能正确验证同源请求。
+
 ## 免责声明与许可
 
 模拟器内容为测试资料，正确资讯请以官方游戏内的内容为准。本项目不隶属于火炬之光: 无限，也未得到心动网络股份有限公司的认可。心动网络对本项目的内容或功能不承担任何责任，也不对使用本项目而产生的任何损害承担责任。

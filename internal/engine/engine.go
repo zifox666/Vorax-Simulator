@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sort"
 
-	"google.golang.org/protobuf/proto"
 	pb "vorax/internal/protocol"
+
+	"google.golang.org/protobuf/proto"
 )
 
 func New(runID, userID, seed string, pet int32, r *Rules) (*pb.GameState, error) {
@@ -328,7 +329,7 @@ func View(s *pb.GameState, r *Rules) *pb.GameView {
 
 func ValidateState(s *pb.GameState, r *Rules) error {
 	if s == nil || s.FormatVersion != 1 || s.RulesVersion != r.Version || s.ContentVersion != r.ContentVersion || s.RngVersion != RNGVersion {
-		return fmt.Errorf("VERSION_UNAVAILABLE: 存档版本不可用，不能使用新规则替代")
+		return fmt.Errorf("VERSION_UNAVAILABLE: 存档版本不可用，请重新开始一局游戏")
 	}
 	if len(s.Slots) != 6 || s.Rewards == nil || len(s.Rewards.ToolClaims) != 2 || s.BaseCursor < 0 || s.BaseCursor > 11 || s.CompletedTurns < 0 || s.CompletedTurns > 13 || s.Revision == 0 {
 		return fmt.Errorf("INVALID_STATE: 存档结构无效")

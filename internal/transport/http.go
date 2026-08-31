@@ -3,8 +3,10 @@ package transport
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -15,7 +17,15 @@ import (
 	"vorax/internal/storage"
 )
 
-func Router(svc *application.Service, cache *storage.Cache, assets http.FileSystem) *gin.Engine {
+// Router serves the application. publicOrigin is the externally visible origin
+// (for example, https://ky.dscan.icu) when TLS terminates at a reverse proxy.
+// An empty value derives the origin from the direct request, which is suitable
+// for local HTTP development.
+func Router(svc *application.Service, cache *storage.Cache, assets http.FileSystem, publicOrigin string) (*gin.Engine, error) {
+	publicOrigin, err := normalizeOrigin(publicOrigin)
+	if err != nil {
+		return nil, err
+	}
 	r := gin.New()
 	r.Use(gin.Recovery())
 	_ = r.SetTrustedProxies(nil)
@@ -32,10 +42,7 @@ func Router(svc *application.Service, cache *storage.Cache, assets http.FileSyst
 	api := r.Group("/api/v1")
 	api.Use(func(c *gin.Context) {
 		if origin := c.GetHeader("Origin"); origin != "" {
-			expected := "http://" + c.Request.Host
-			if c.Request.TLS != nil {
-				expected = "https://" + c.Request.Host
-			}
+			expected := requestOrigin(c.Request, publicOrigin)
 			if origin != expected {
 				c.AbortWithStatusJSON(403, gin.H{"code": "ORIGIN_REJECTED", "message": "仅接受同源请求"})
 				return
@@ -65,7 +72,30 @@ func Router(svc *application.Service, cache *storage.Cache, assets http.FileSyst
 		}
 		http.FileServer(assets).ServeHTTP(c.Writer, c.Request)
 	})
-	return r
+	return r, nil
+}
+
+func normalizeOrigin(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("PUBLIC_ORIGIN 必须是无路径、参数或片段的 http(s) 来源，例如 https://example.com")
+	}
+	return u.Scheme + "://" + u.Host, nil
+}
+
+func requestOrigin(r *http.Request, publicOrigin string) string {
+	if publicOrigin != "" {
+		return publicOrigin
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host
 }
 
 func endpoint(cache *storage.Cache, factory func() proto.Message, call func(*gin.Context, proto.Message) (proto.Message, error)) gin.HandlerFunc {

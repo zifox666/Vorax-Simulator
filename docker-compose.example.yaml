@@ -8,6 +8,7 @@ services:
     environment:
       LISTEN_ADDR: 0.0.0.0:8080
       SIGNING_KEY_FILE: /data/signing.key
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
       DATABASE_URL: postgres://vorax:vorax_local_only@postgres:5432/vorax?sslmode=disable
       REDIS_URL: redis://redis:6379/0
     ports:

@@ -63,7 +63,11 @@ func main() {
 		defer cache.Client.Close()
 	}
 	svc := &application.Service{Rules: rules, Signer: signer}
-	server := &http.Server{Addr: env("LISTEN_ADDR", "127.0.0.1:8080"), Handler: transport.Router(svc, cache, http.FS(web.Files)), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	router, err := transport.Router(svc, cache, http.FS(web.Files), os.Getenv("PUBLIC_ORIGIN"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	server := &http.Server{Addr: env("LISTEN_ADDR", "127.0.0.1:8080"), Handler: router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	go func() {

@@ -2478,6 +2478,35 @@ main {
   align-items: center;
   gap: 12px;
 }
+.github-link {
+  width: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink);
+}
+.github-link:hover {
+  border-color: var(--primary);
+}
+.github-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+.github-icon-dark {
+  display: none;
+}
+html[data-theme="dark"] .github-icon-light {
+  display: none;
+}
+html[data-theme="dark"] .github-icon-dark {
+  display: block;
+}
 .theme-control {
   position: relative;
 }
