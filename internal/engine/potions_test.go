@@ -24,7 +24,7 @@ func potionTestPlay(t *testing.T, s *pb.GameState, r *Rules, id string, ids ...s
 
 func TestPotionCatalogComplete(t *testing.T) {
 	cards := potionCards()
-	if len(cards) != 37 {
+	if len(cards) != 40 {
 		t.Fatalf("got %d potion definitions", len(cards))
 	}
 	ids, names := map[string]bool{}, map[string]bool{}
@@ -37,7 +37,7 @@ func TestPotionCatalogComplete(t *testing.T) {
 		}
 		ids[card.Id], names[card.Name] = true, true
 	}
-	for _, id := range []string{"insect_powder", "awaker_fluid", "fiend_fluid", "awakening", "digestive", "mutation", "fusion", "insect_boost", "lure", "holy_water", "box_3", "box_5", "normal_box_3", "normal_box_5"} {
+	for _, id := range []string{"insect_powder", "bone_powder", "awaker_fluid", "fiend_fluid", "awakening", "digestive", "mutation", "fusion", "insect_boost", "lure", "holy_water", "box_3", "box_5", "normal_box_3", "normal_box_5"} {
 		if !ids[id] {
 			t.Fatalf("missing %s", id)
 		}
@@ -252,7 +252,7 @@ func TestPotionAdditionBonuses(t *testing.T) {
 		family   pb.Family
 		activity int64
 		quantity int64
-	}{{"insect_powder", pb.Family_INSECT, 0, 73}, {"awaker_fluid", pb.Family_AWAKENER, 31, 0}, {"fiend_fluid", pb.Family_FIEND, 31, 0}} {
+	}{{"insect_powder", pb.Family_INSECT, 0, 73}, {"bone_powder", pb.Family_BONE, 0, 73}, {"awaker_fluid", pb.Family_AWAKENER, 31, 0}, {"fiend_fluid", pb.Family_FIEND, 31, 0}} {
 		s, r := fixture(t)
 		c := potionTestPlay(t, s, r, tc.id)
 		m := s.Slots[0].Monster
@@ -260,6 +260,29 @@ func TestPotionAdditionBonuses(t *testing.T) {
 		if m.Family != tc.family || m.Activity != a+tc.activity || m.Quantity != q+tc.quantity || eventCount(c.events, "added") != 1 {
 			t.Fatalf("wrong addition for %s: %v", tc.id, m)
 		}
+	}
+}
+
+func TestPotionBonePowderDefinitionAndOverflow(t *testing.T) {
+	s, r := fixture(t)
+	card := r.Card("bone_powder")
+	if card == nil || card.Name != "细肢药粉-骨卫兵" || card.Rarity != pb.PotionRarity_WHITE || !card.Enabled || card.MinTargets != 0 || card.MaxTargets != 0 || !validTargets(s, card, nil) {
+		t.Fatalf("invalid bone powder definition: %v", card)
+	}
+	for i := 0; i < 6; i++ {
+		put(s, i, pb.Family_BONE, pb.MonsterRarity_NORMAL, 1, 36)
+	}
+	if validTargets(s, card, []string{s.Slots[0].Monster.Id}) {
+		t.Fatal("bone powder accepted a selected target")
+	}
+	s.Tools = []string{"nail"}
+	rng, nextID := s.EffectRng, s.NextMonsterId
+	c := potionTestPlay(t, s, r, "bone_powder")
+	if eventCount(c.events, "overflow") != 1 || eventCount(c.events, "added") != 0 || len(monsterIDs(s)) != 6 || s.EffectRng != rng || s.NextMonsterId != nextID {
+		t.Fatal("bone powder overflow changed spawn state")
+	}
+	if s.Slots[0].Monster.Activity != 26 || s.Slots[0].Monster.Quantity != 61 {
+		t.Fatal("bone powder overflow applied incorrect stats")
 	}
 }
 

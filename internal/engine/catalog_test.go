@@ -173,7 +173,7 @@ func TestExpandedCatalogFullRuns(t *testing.T) {
 			}
 			s = next
 		}
-		if s.BaseCursor != 11 || s.CompletedTurns < 11 || s.CompletedTurns > 13 {
+		if s.BaseCursor != 12 || s.CompletedTurns < 11 || s.CompletedTurns > 13 {
 			t.Fatalf("seed %d finished with invalid counters", seed)
 		}
 	}

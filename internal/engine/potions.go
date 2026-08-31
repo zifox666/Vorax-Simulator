@@ -37,6 +37,7 @@ func potionCards() []*pb.CardDefinition {
 		{Id: "fresh_marrow_powder", Name: "鲜脊髓药粉", Description: "随机至多3组非异魔变异为异魔，每变异1组，使随机3组异魔+42数量", Rarity: gold, Handler: "potion_fresh_marrow_powder"},
 		{Id: "fiend_anesthetic", Name: "麻药酊剂-异魔", Description: "选择1组怪物，变异为异魔，50%概率再随机1组怪物变异为异魔", Rarity: white, MinTargets: 1, MaxTargets: 1, Handler: "potion_fiend_anesthetic", Enabled: true},
 		{Id: "insect_powder", Name: "细肢药粉-蛊虫", Description: "添加1组蛊虫，使其+73数量", Rarity: white, Effects: []*pb.EffectSpec{{Op: "add", Count: 1, Family: pb.Family_INSECT, Quantity: 73}}, Enabled: true},
+		{Id: "bone_powder", Name: "细肢药粉-骨卫兵", Description: "添加1组骨卫兵，使其+73数量", Rarity: white, Effects: []*pb.EffectSpec{{Op: "add", Count: 1, Family: pb.Family_BONE, Quantity: 73}}, Enabled: true},
 		{Id: "brood_hormone", Name: "活性育卵激素", Description: "添加1组蛊虫，50%概率额外添加2组", Rarity: blue, Handler: "potion_brood_hormone", Enabled: true},
 		{Id: "proliferation_powder", Name: "活殖药粉", Description: "随机4组稀有度各不相同的怪物+32数量", Rarity: blue, Handler: "potion_proliferation_powder"},
 		{Id: "eggshell_powder", Name: "卵壳药粉", Description: "随机1组怪物+25数量，如果是蛊虫，添加1组同名蛊虫并为其+25数量", Rarity: blue, Handler: "potion_eggshell_powder"},
@@ -46,6 +47,8 @@ func potionCards() []*pb.CardDefinition {
 		{Id: "brain_fog", Name: "脑雾酊剂", Description: "随机1组怪物+41活性，如果是觉醒者，觉醒为稀有怪物", Rarity: blue, Handler: "potion_brain_fog"},
 		{Id: "bone_growth_powder", Name: "生骨药粉", Description: "随机1组怪物+40数量，如果是骨卫兵额外+127数量并移除1组非骨卫兵", Rarity: blue, Handler: "potion_bone_growth_powder"},
 		{Id: "fiend_fluid", Name: "脊髓溶液-异魔", Description: "添加1组异魔，使其+31活性", Rarity: white, Effects: []*pb.EffectSpec{{Op: "add", Count: 1, Family: pb.Family_FIEND, Activity: 31}}, Enabled: true},
+		{Id: "bone_twin_hormone", Name: "孪生激素-骨卫兵", Description: "选择1组怪物，变异为骨卫兵，使其+62数量", Rarity: white, MinTargets: 1, MaxTargets: 1, Effects: []*pb.EffectSpec{{Op: "mutate", Selector: "selected", Family: pb.Family_BONE}, {Op: "buff", Selector: "selected", Quantity: 62}}, Enabled: true},
+		{Id: "insect_twin_hormone", Name: "孪生激素-蛊虫", Description: "选择1组怪物，变异为蛊虫，并添加1组同名怪物", Rarity: white, MinTargets: 1, MaxTargets: 1, Handler: "potion_insect_twin_hormone", Enabled: true},
 	}
 	for _, card := range cards {
 		card.Kind = pb.CardKind_POTION
@@ -173,6 +176,10 @@ func (c *context) applyPotion(handler string, ids []string) {
 	case "potion_awaker_anesthetic":
 		c.transform(ids[0], pb.Family_AWAKENER, 0, false, 0)
 		c.transform(ids[0], 0, pb.MonsterRarity_MAGIC, true, 0)
+	case "potion_insect_twin_hormone":
+		c.transform(ids[0], pb.Family_INSECT, 0, false, 0)
+		m := getMonster(c.state, ids[0])
+		c.addMonster(m.Family, m.Rarity, 0, 0, &c.state.EffectRng, definitionOf(m))
 	case "potion_sticky_bile":
 		m := getMonster(c.state, ids[0])
 		right := c.potionRight(m.Id)

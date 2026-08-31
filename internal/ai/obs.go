@@ -18,7 +18,7 @@ var rules = engine.DemoRules()
 type Observation struct {
 	Phase           string     `json:"phase"`           // PREPARING / CHOOSING / FINISHED
 	StageLabel      string     `json:"stageLabel"`      // 界面阶段标题
-	BaseCursor      int32      `json:"baseCursor"`      // 基础选择进度 0-11
+	BaseCursor      int32      `json:"baseCursor"`      // 基础选择进度 0-12
 	CompletedTurns  int32      `json:"completedTurns"`  // 已完成回合数
 	Score           int64      `json:"score"`           // 当前分数
 	Slots           []SlotView `json:"slots"`           // 六个培养槽

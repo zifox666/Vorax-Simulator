@@ -230,7 +230,7 @@ func TestTriggerOrderReadsUpdatedBoard(t *testing.T) {
 		put(s, 0, 1, 1, 140, 300)
 		s.Tools = order
 		s.Offer.Kind = pb.CardKind_SCHEME
-		s.BaseCursor = 8
+		s.BaseCursor = 9
 		next, _ := play(t, s, r, "scheme_0")
 		want := int64(160)
 		if order[0] == "scraper" {
@@ -255,11 +255,11 @@ func TestNewToolRunsAndLateRewardsDelayFinish(t *testing.T) {
 	s, r = fixture(t)
 	put(s, 0, 1, 1, 1, 1400)
 	s.Tools = []string{"scraper"}
-	s.BaseCursor = 10
+	s.BaseCursor = 11
 	s.CompletedTurns = 10
 	s.Offer.Kind = pb.CardKind_SCHEME
 	next, _ = play(t, s, r, "scheme_0")
-	if next.Phase == pb.Phase_FINISHED || next.BaseCursor != 11 || next.Offer.RewardThreshold != 8000 {
+	if next.Phase == pb.Phase_FINISHED || next.BaseCursor != 12 || next.Offer.RewardThreshold != 8000 {
 		t.Fatal("last scheme discarded late reward")
 	}
 	next, _ = play(t, next, r, "nail")
@@ -267,7 +267,7 @@ func TestNewToolRunsAndLateRewardsDelayFinish(t *testing.T) {
 		t.Fatal("second threshold not queued")
 	}
 	next, _ = play(t, next, r, "eye")
-	if next.Phase != pb.Phase_FINISHED || next.CompletedTurns != 13 || next.BaseCursor != 11 {
+	if next.Phase != pb.Phase_FINISHED || next.CompletedTurns != 13 || next.BaseCursor != 12 {
 		t.Fatal("late reward flow incorrect")
 	}
 }
@@ -300,7 +300,7 @@ func TestPeriodicToolAndRaritySnapshot(t *testing.T) {
 	id := put(s, 0, 1, 1, 1, 36)
 	s.Tools = []string{"statue"}
 	s.Offer.Kind = pb.CardKind_SCHEME
-	s.BaseCursor = 8
+	s.BaseCursor = 9
 	next, events := play(t, s, r, "scheme_0")
 	if eventCount(events, "awakened") != 0 {
 		t.Fatal("periodic tool triggered early")
@@ -359,7 +359,6 @@ func TestDeterministicFullRunsAcrossSaveRestore(t *testing.T) {
 		b, _ := New("b", "u", fmt.Sprintf("seed-%d", seed), 2, r)
 		steps := 0
 		potions, schemes, openingTools := 0, 0, 0
-		ownedTools := map[string]bool{}
 		for a.Phase != pb.Phase_FINISHED {
 			if steps > 21 {
 				t.Fatal("run did not terminate")
@@ -384,10 +383,13 @@ func TestDeterministicFullRunsAcrossSaveRestore(t *testing.T) {
 			case pb.CardKind_SCHEME:
 				schemes++
 			case pb.CardKind_TOOL:
-				if ownedTools[choice.Definition.Id] {
-					t.Fatal("duplicate tool offered")
+				seen := map[string]bool{}
+				for _, id := range a.Offer.CardIds {
+					if seen[id] {
+						t.Fatal("duplicate tool within one offer")
+					}
+					seen[id] = true
 				}
-				ownedTools[choice.Definition.Id] = true
 				if a.Offer.RewardThreshold == 0 {
 					openingTools++
 				}
@@ -410,10 +412,10 @@ func TestDeterministicFullRunsAcrossSaveRestore(t *testing.T) {
 				t.Fatalf("seed %d drift at step %d", seed, steps)
 			}
 		}
-		if a.BaseCursor != 11 || a.CompletedTurns < 11 || a.CompletedTurns > 13 {
+		if a.BaseCursor != 12 || a.CompletedTurns < 11 || a.CompletedTurns > 13 {
 			t.Fatal("invalid final turn count")
 		}
-		if potions != 7 || schemes != 3 || openingTools != 1 {
+		if potions != 8 || schemes != 3 || openingTools != 1 {
 			t.Fatalf("wrong flow: %d potions, %d schemes, %d opening tools", potions, schemes, openingTools)
 		}
 	}
@@ -439,9 +441,13 @@ func TestOpeningToolIsIndependentOfScoreRewards(t *testing.T) {
 	if s.ToolRefreshes != 1 || s.CompletedTurns != 0 || s.Offer.RewardThreshold != 0 {
 		t.Fatal("opening tool refresh changed clock or reward source")
 	}
-	s, _ = play(t, s, r, "claw")
-	if s.BaseCursor != 1 || s.CompletedTurns != 1 || len(s.Tools) != 1 || s.Offer.Kind != pb.CardKind_POTION || View(s, r).StageLabel != "药剂选择 1 / 7" {
-		t.Fatal("opening tool did not advance into seven-potion flow")
+	var events []*pb.GameEvent
+	s, events = play(t, s, r, "claw")
+	if s.BaseCursor != 1 || s.CompletedTurns != 0 || len(s.Tools) != 1 || s.Offer.Kind != pb.CardKind_POTION || View(s, r).StageLabel != "药剂选择 1 / 8" {
+		t.Fatal("opening tool did not advance into eight-potion flow")
+	}
+	if eventCount(events, "turn_end") != 0 {
+		t.Fatal("opening tool ended a formal turn")
 	}
 	for _, claim := range s.Rewards.ToolClaims {
 		if claim.Status != pb.ClaimStatus_LOCKED {
@@ -453,20 +459,44 @@ func TestOpeningToolIsIndependentOfScoreRewards(t *testing.T) {
 		slot.Monster = nil
 	}
 	put(s, 0, pb.Family_BONE, pb.MonsterRarity_NORMAL, 1, 36)
-	for i := 0; i < 7; i++ {
-		if s.Offer.Kind != pb.CardKind_POTION {
+	for i := 0; i < 8; i++ {
+		if s.Offer.Kind != pb.CardKind_POTION || View(s, r).StageLabel != fmt.Sprintf("药剂选择 %d / 8", i+1) || s.CompletedTurns != int32(i) {
 			t.Fatal("potion count incorrect")
 		}
 		s, _ = play(t, s, r, "insect_boost")
 	}
 	for i := 0; i < 3; i++ {
-		if s.Offer.Kind != pb.CardKind_SCHEME {
+		if s.Offer.Kind != pb.CardKind_SCHEME || View(s, r).StageLabel != fmt.Sprintf("手术方案 %d / 3", i+1) {
 			t.Fatal("schemes must close the base flow")
 		}
 		s, _ = play(t, s, r, "scheme_0")
 	}
-	if s.Phase != pb.Phase_FINISHED || s.CompletedTurns != 11 || len(s.Tools) != 1 {
+	if s.Phase != pb.Phase_FINISHED || s.CompletedTurns != 11 || s.BaseCursor != 12 || len(s.Tools) != 1 {
 		t.Fatal("low-score run should finish without fabricating score rewards")
+	}
+}
+
+func TestOpeningToolDefersPassiveAndPeriodicEffects(t *testing.T) {
+	s, r := fixture(t)
+	put(s, 0, pb.Family_AWAKENER, pb.MonsterRarity_RARE, 15, 12)
+	s.Offer.Kind = pb.CardKind_TOOL
+	// A periodic tool is pre-equipped to detect accidental turn-zero triggers.
+	s.Tools = []string{"statue"}
+	before := proto.Clone(s).(*pb.GameState)
+	s, events := play(t, s, r, "pituitary")
+	if s.CompletedTurns != 0 || eventCount(events, "turn_end") != 0 || eventCount(events, "awakened") != 0 || eventCount(events, "stats_changed") != 0 {
+		t.Fatal("opening selection triggered end-of-turn or periodic effects")
+	}
+	if !proto.Equal(s.Slots[0].Monster, before.Slots[0].Monster) || s.EffectRng != before.EffectRng {
+		t.Fatal("opening selection changed monster stats or effect RNG")
+	}
+	s, events = play(t, s, r, "insect_boost")
+	if s.CompletedTurns != 1 || eventCount(events, "turn_end") != 1 || eventCount(events, "awakened") != 0 || s.Slots[0].Monster.Activity != 95 {
+		t.Fatal("first potion should start the clock and activate the equipped tool")
+	}
+	s, events = play(t, s, r, "insect_boost")
+	if s.CompletedTurns != 2 || eventCount(events, "awakened") != 1 {
+		t.Fatal("periodic tool should first trigger at formal turn two")
 	}
 }
 

@@ -69,7 +69,7 @@ POST /api/v1/ai/decide
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | phase | string | PREPARING / CHOOSING / FINISHED |
-| stageLabel | string | 界面阶段标题（如"药剂选择 3 / 7"） |
+| stageLabel | string | 界面阶段标题（如"药剂选择 3 / 8"） |
 | baseCursor / completedTurns | int | 基础选择进度 / 已完成回合 |
 | score | int64 | 当前分数 |
 | slots | SlotView[6] | 每个培养槽的怪物定义 ID、名称、族、稀有度、活性、数量（0 为空） |

@@ -1,0 +1,26 @@
+[project]
+name = "vorax-assistant"
+version = "0.1.0"
+description = "OCR-only Torchlight laboratory companion"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "httpx>=0.28,<0.29",
+    "rapidocr>=3.9.2,<4",
+    "onnxruntime>=1.22,<2",
+    "pillow>=11,<13",
+    "textual>=6,<9",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "pyinstaller>=6,<7"]
+
+[project.scripts]
+vorax-assistant = "vorax_assistant.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

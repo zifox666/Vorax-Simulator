@@ -106,10 +106,8 @@ func Apply(state *pb.GameState, cmd *pb.Command, r *Rules) (*pb.GameState, []*pb
 				return s, c.events, nil
 			}
 			kind := s.Offer.Kind
+			openingTool := kind == pb.CardKind_TOOL && isOpeningToolOffer(s, s.Offer.RewardThreshold)
 			if kind == pb.CardKind_TOOL {
-				if contains(s.Tools, card.Id) {
-					return nil, nil, fmt.Errorf("INVALID_CARD: 已拥有此用具")
-				}
 				s.Tools = append(s.Tools, card.Id)
 				for _, claim := range s.Rewards.ToolClaims {
 					if claim.Threshold == s.Offer.RewardThreshold {
@@ -123,16 +121,19 @@ func Apply(state *pb.GameState, cmd *pb.Command, r *Rules) (*pb.GameState, []*pb
 			if c.err != nil {
 				return nil, nil, c.err
 			}
-			// Increment before triggers so periodic tools see this formal turn.
-			s.CompletedTurns++
-			c.emit("turn_end", fmt.Sprintf("第 %d 回合结束结算", s.CompletedTurns), nil, 0, 0)
-			if c.err != nil {
-				return nil, nil, c.err
+			// The opening tool is preparation only. Reward tools, potions and
+			// schemes advance the clock before triggering end-of-turn effects.
+			if !openingTool {
+				s.CompletedTurns++
+				c.emit("turn_end", fmt.Sprintf("第 %d 回合结束结算", s.CompletedTurns), nil, 0, 0)
+				if c.err != nil {
+					return nil, nil, c.err
+				}
 			}
-			if kind == pb.CardKind_POTION || kind == pb.CardKind_SCHEME || (kind == pb.CardKind_TOOL && s.Offer.RewardThreshold == 0) {
+			if kind == pb.CardKind_POTION || kind == pb.CardKind_SCHEME || openingTool {
 				s.BaseCursor++
 			}
-			if err := updateRewards(s, true); err != nil {
+			if err := updateRewards(s, !openingTool); err != nil {
 				return nil, nil, err
 			}
 			c.emit("scored", fmt.Sprintf("结算分数 %d", s.Score), nil, 0, 0)
@@ -161,7 +162,7 @@ func advance(s *pb.GameState, r *Rules) error {
 			return makeOffer(s, r, pb.CardKind_TOOL, "threshold", claim.Threshold)
 		}
 	}
-	if s.BaseCursor >= 11 {
+	if s.BaseCursor >= 12 {
 		s.Phase = pb.Phase_FINISHED
 		s.Offer = nil
 		return nil
@@ -169,7 +170,7 @@ func advance(s *pb.GameState, r *Rules) error {
 	if s.BaseCursor == 0 {
 		return makeOffer(s, r, pb.CardKind_TOOL, "opening", 0)
 	}
-	if s.BaseCursor < 8 {
+	if s.BaseCursor < 9 {
 		return makeOffer(s, r, pb.CardKind_POTION, "base", 0)
 	}
 	return makeOffer(s, r, pb.CardKind_SCHEME, "base", 0)
@@ -188,7 +189,7 @@ func makeOffer(s *pb.GameState, r *Rules, kind pb.CardKind, source string, thres
 		if opening && card.CoreFamily == pb.Family_FAMILY_UNSPECIFIED {
 			continue
 		}
-		if card.Enabled && card.Kind == kind && !(kind == pb.CardKind_TOOL && contains(s.Tools, card.Id)) && (kind != pb.CardKind_POTION || len(LegalTargets(s, card)) > 0) {
+		if card.Enabled && card.Kind == kind && (kind != pb.CardKind_POTION || len(LegalTargets(s, card)) > 0) {
 			pool = append(pool, card)
 		}
 	}
@@ -310,9 +311,9 @@ func View(s *pb.GameState, r *Rules) *pb.GameView {
 		case pb.CardKind_UNKNOWN:
 			v.StageLabel = "手术准备"
 		case pb.CardKind_POTION:
-			v.StageLabel = fmt.Sprintf("药剂选择 %d / 7", s.BaseCursor)
+			v.StageLabel = fmt.Sprintf("药剂选择 %d / 8", s.BaseCursor)
 		case pb.CardKind_SCHEME:
-			v.StageLabel = fmt.Sprintf("手术方案 %d / 3", s.BaseCursor-7)
+			v.StageLabel = fmt.Sprintf("手术方案 %d / 3", s.BaseCursor-8)
 		case pb.CardKind_TOOL:
 			if s.Offer.RewardThreshold == 0 {
 				v.StageLabel = "开局手术用具"
@@ -333,7 +334,7 @@ func ValidateState(s *pb.GameState, r *Rules) error {
 	if s == nil || s.FormatVersion != 1 || s.RulesVersion != r.Version || s.ContentVersion != r.ContentVersion || s.RngVersion != RNGVersion {
 		return fmt.Errorf("VERSION_UNAVAILABLE: 存档版本不可用，请重新开始一局游戏")
 	}
-	if len(s.Slots) != 6 || s.Rewards == nil || len(s.Rewards.ToolClaims) != 2 || s.BaseCursor < 0 || s.BaseCursor > 11 || s.CompletedTurns < 0 || s.CompletedTurns > 13 || s.Revision == 0 {
+	if len(s.Slots) != 6 || s.Rewards == nil || len(s.Rewards.ToolClaims) != 2 || s.BaseCursor < 0 || s.BaseCursor > 12 || s.CompletedTurns < 0 || s.CompletedTurns > 13 || s.Revision == 0 {
 		return fmt.Errorf("INVALID_STATE: 存档结构无效")
 	}
 	if s.OpeningToolFamily < pb.Family_FAMILY_UNSPECIFIED || s.OpeningToolFamily > pb.Family_INSECT || (s.Phase != pb.Phase_PREPARING && s.OpeningToolFamily == pb.Family_FAMILY_UNSPECIFIED) {

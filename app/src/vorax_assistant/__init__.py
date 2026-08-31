@@ -1,0 +1,2 @@
+"""OCR-only laboratory companion."""
+

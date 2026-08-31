@@ -442,7 +442,7 @@ func TestToolOverflowRollsBackCommand(t *testing.T) {
 			s, r := fixture(t)
 			s.Tools = []string{tool}
 			s.Offer = &pb.Offer{Id: "fixture", Kind: pb.CardKind_SCHEME, CardIds: []string{"scheme_0"}}
-			s.BaseCursor = 8
+			s.BaseCursor = 9
 			activity, quantity := int64(math.MaxInt64), int64(1)
 			family, rarity := pb.Family_AWAKENER, pb.MonsterRarity_RARE
 			switch tool {

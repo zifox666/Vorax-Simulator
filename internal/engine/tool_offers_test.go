@@ -161,7 +161,7 @@ func assertOpeningTools(t *testing.T, s *pb.GameState, r *Rules) {
 	seen := map[string]bool{}
 	for _, id := range s.Offer.CardIds {
 		card := r.Card(id)
-		if card == nil || card.CoreFamily == 0 || seen[id] || contains(s.Tools, id) {
+		if card == nil || card.CoreFamily == 0 || seen[id] {
 			t.Fatalf("invalid opening candidate: %s", id)
 		}
 		seen[id] = true
@@ -267,14 +267,14 @@ func TestLaterToolOffersAreUniformAndIncludeAllTools(t *testing.T) {
 		for seed := uint64(0); seed < 256; seed++ {
 			for family := pb.Family_BONE; family <= pb.Family_INSECT; family++ {
 				s, _ := fixture(t)
-				s.BaseCursor = int32(seed % 11)
+				s.BaseCursor = int32(seed % 12)
 				s.OpeningToolFamily = family
 				s.Tools = []string{"claw", "eye"}
 				s.OfferRng = seed
 				expectedRNG := seed
 				pool := []*pb.CardDefinition{}
 				for _, card := range r.Cards {
-					if card.Enabled && card.Kind == pb.CardKind_TOOL && !contains(s.Tools, card.Id) {
+					if card.Enabled && card.Kind == pb.CardKind_TOOL {
 						pool = append(pool, card)
 					}
 				}
@@ -288,10 +288,15 @@ func TestLaterToolOffersAreUniformAndIncludeAllTools(t *testing.T) {
 				if err := makeOffer(s, r, pb.CardKind_TOOL, "refresh", threshold); err != nil {
 					t.Fatal(err)
 				}
+				offerSeen := map[string]bool{}
 				for i, id := range ids {
 					if s.Offer.CardIds[i] != id {
 						t.Fatalf("later offer is biased: got %v, want %v", s.Offer.CardIds, ids)
 					}
+					if offerSeen[id] {
+						t.Fatalf("duplicate tool in one offer: %v", ids)
+					}
+					offerSeen[id] = true
 					seen[id] = true
 				}
 				if s.OfferRng != expectedRNG {
@@ -300,8 +305,31 @@ func TestLaterToolOffersAreUniformAndIncludeAllTools(t *testing.T) {
 			}
 		}
 	}
-	if len(seen) != 22 || seen["claw"] || seen["eye"] {
-		t.Fatalf("incomplete or duplicate later pool: %v", seen)
+	if len(seen) != 24 || !seen["claw"] || !seen["eye"] {
+		t.Fatalf("later pool excluded owned tools: %v", seen)
+	}
+}
+
+func TestRewardToolCanBeAcquiredAgain(t *testing.T) {
+	s, r := fixture(t)
+	s.BaseCursor, s.CompletedTurns = 2, 1
+	s.Tools = []string{"fang"}
+	put(s, 0, pb.Family_BONE, pb.MonsterRarity_NORMAL, 300, 1)
+	s.Rewards.ToolClaims[0].Status = pb.ClaimStatus_PENDING
+	s.Offer.Kind, s.Offer.RewardThreshold = pb.CardKind_TOOL, 8000
+	s.Offer.CardIds = []string{"fang", "saw", "eye"}
+	next, _, err := Apply(s, &pb.Command{Type: "choose", OfferId: s.Offer.Id, CardId: "fang"}, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(next.Tools) != 2 || next.Tools[0] != "fang" || next.Tools[1] != "fang" {
+		t.Fatal("repeated acquisition was not preserved", next.Tools)
+	}
+	if next.Slots[0].Monster.Quantity != 61 || next.CompletedTurns != 2 || next.BaseCursor != 2 {
+		t.Fatal("each acquired copy must trigger in order without adding extra turns")
+	}
+	if next.Rewards.ToolClaims[0].Status != pb.ClaimStatus_CLAIMED || len(s.Tools) != 1 {
+		t.Fatal("claim or transactional input changed incorrectly")
 	}
 }
 

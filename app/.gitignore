@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+build/
+dist/
+.local/
+
+screenshots/*
+
+真实游戏对局AI.md
+设计说明.md
