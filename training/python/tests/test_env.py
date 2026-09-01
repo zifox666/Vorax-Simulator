@@ -2,9 +2,11 @@ import json
 
 import httpx
 import numpy as np
+import pytest
 from gymnasium.utils.env_checker import check_env
 
 from vorax_gym import VoraxEnv, VoraxVectorEnv
+from vorax_gym.train import build_sb3_vector_env
 
 
 SPEC = {
@@ -94,3 +96,29 @@ def test_vector_env_batches_and_requires_explicit_reset():
     observation, info = env.reset(options={"reset_mask": terminated})
     assert observation["action_mask"].shape == (3, 2)
     env.close()
+
+
+def test_sb3_batch_environment_advertises_action_masking(monkeypatch):
+    VecEnv = pytest.importorskip("stable_baselines3.common.vec_env").VecEnv
+
+    class Arguments:
+        server = "http://test"
+        api_key = "key"
+        envs = 3
+        pet_refreshes = 0
+        seed = 42
+        reward_scale = 10_000
+
+    class MockVectorEnv(VoraxVectorEnv):
+        def __init__(self, *args, **kwargs):
+            kwargs["transport"] = transport()
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr("vorax_gym.train.VoraxVectorEnv", MockVectorEnv)
+    env = build_sb3_vector_env(VecEnv, Arguments())
+    try:
+        assert env.has_attr("action_masks")
+        observation = env.reset()
+        assert np.array_equal(env.action_masks(), observation["action_mask"].astype(bool))
+    finally:
+        env.close()

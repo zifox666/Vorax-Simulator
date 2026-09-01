@@ -115,6 +115,12 @@ def build_sb3_vector_env(vec_env_class: Any, args: argparse.Namespace):
             selected = _indices(indices, self.num_envs)
             if attr_name == "render_mode":
                 return [None for _ in selected]
+            # sb3-contrib probes VecEnv support via get_attr() before it calls
+            # env_method("action_masks").  Expose the callable for every
+            # logical environment so that probe reflects the implementation
+            # below rather than the remote batch client's attributes.
+            if attr_name == "action_masks":
+                return [self.action_masks for _ in selected]
             return [getattr(self.remote, attr_name) for _ in selected]
 
         def set_attr(self, attr_name, value, indices=None):
