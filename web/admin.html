@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>训练 API 管理 · 渴瘾模拟器</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, "Microsoft YaHei", sans-serif; background:#0b1020; color:#e8ecff; }
+      * { box-sizing:border-box; } body { margin:0; min-height:100vh; background:radial-gradient(circle at top,#202a55,#0b1020 52%); }
+      main { width:min(1060px,calc(100% - 32px)); margin:0 auto; padding:48px 0; }
+      header { display:flex; justify-content:space-between; gap:24px; align-items:end; margin-bottom:24px; }
+      h1,h2,p { margin-top:0; } h1 { margin-bottom:8px; } .muted { color:#a9b1d6; }
+      .panel { background:rgba(19,27,55,.9); border:1px solid #354174; border-radius:16px; padding:22px; box-shadow:0 20px 55px #0007; margin-bottom:20px; }
+      form { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; align-items:end; }
+      label { display:grid; gap:7px; color:#cbd2f4; font-size:14px; }
+      input { width:100%; border:1px solid #43518c; background:#0e1630; color:#fff; border-radius:9px; padding:10px 12px; }
+      button { border:0; border-radius:9px; padding:10px 14px; cursor:pointer; background:#725cff; color:white; font-weight:700; }
+      button.secondary { background:#2c386a; } button.danger { background:#9d3348; } button:disabled { opacity:.5; cursor:not-allowed; }
+      .login { display:flex; gap:10px; } .login input { flex:1; }
+      .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+      .table-wrap { overflow:auto; } table { width:100%; border-collapse:collapse; margin-top:16px; }
+      th,td { padding:12px 10px; text-align:left; border-bottom:1px solid #303b69; white-space:nowrap; }
+      th { color:#aeb7df; font-size:13px; } .actions { display:flex; gap:8px; }
+      .secret { background:#081024; border:1px solid #3e4f8f; padding:14px; border-radius:10px; overflow-wrap:anywhere; }
+      .notice { padding:12px 14px; border-radius:9px; margin-bottom:16px; background:#26376c; } .error { background:#6d2638; }
+      [hidden] { display:none !important; }
+      @media (max-width:800px) { form { grid-template-columns:1fr 1fr; } header { align-items:start; flex-direction:column; } }
+      @media (max-width:520px) { form { grid-template-columns:1fr; } .login,.toolbar { align-items:stretch; flex-direction:column; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><div><div class="muted">VORAX TRAINING CONTROL</div><h1>训练 API 管理</h1><p class="muted">管理员令牌只保存在本页内存中，刷新页面后会清除。</p></div><a href="/" class="muted">返回模拟器</a></header>
+      <div id="notice" hidden></div>
+      <section id="login-panel" class="panel">
+        <h2>管理员认证</h2>
+        <div class="login"><input id="admin-token" type="password" autocomplete="off" placeholder="输入 ADMIN_TOKEN" /><button id="login">进入管理</button></div>
+      </section>
+      <div id="manager" hidden>
+        <section class="panel">
+          <h2>创建训练 API Key</h2>
+          <form id="create-form">
+            <label>名称<input name="name" maxlength="128" required placeholder="例如 PPO 实验" /></label>
+            <label>桶容量<input name="capacity" type="number" min="1" max="1000000" value="256" required /></label>
+            <label>每秒补充<input name="refill" type="number" min="0.001" max="100000" step="0.001" value="64" required /></label>
+            <label>过期时间（可空）<input name="expires" type="datetime-local" /></label>
+            <button>创建并显示一次密钥</button>
+          </form>
+        </section>
+        <section id="secret-panel" class="panel" hidden>
+          <h2>请立即保存新密钥</h2><p>关闭或刷新后无法再次查看。</p><div id="secret" class="secret"></div>
+        </section>
+        <section class="panel">
+          <div class="toolbar"><div><h2>已有密钥</h2><span class="muted">修改桶配置会重置当前桶容量。</span></div><button id="refresh" class="secondary">刷新</button></div>
+          <div class="table-wrap"><table><thead><tr><th>名称 / 前缀</th><th>令牌桶</th><th>过期</th><th>状态</th><th>操作</th></tr></thead><tbody id="keys"></tbody></table></div>
+        </section>
+      </div>
+    </main>
+    <script>
+      (()=>{
+        let adminToken='';
+        const $=id=>document.getElementById(id), notice=$('notice');
+        const show=(message,error=false)=>{notice.textContent=message;notice.className='notice'+(error?' error':'');notice.hidden=false;};
+        const api=async(path,options={})=>{
+          const response=await fetch(path,{...options,headers:{Authorization:`Bearer ${adminToken}`,...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}});
+          const data=await response.json().catch(()=>({message:`HTTP ${response.status}`}));
+          if(!response.ok)throw Error(data.message||data.code||`HTTP ${response.status}`);
+          return data;
+        };
+        const iso=value=>value?new Date(value).toISOString():'';
+        const local=value=>value?new Date(value).toLocaleString():'永不过期';
+        async function load(){
+          const data=await api('/api/v1/admin/training-keys');
+          $('keys').replaceChildren(...data.keys.map(key=>{
+            const row=document.createElement('tr');
+            const revoked=!!key.revokedAt, expired=key.expiresAt&&new Date(key.expiresAt)<=new Date();
+            row.innerHTML=`<td><strong></strong><br><span class="muted"></span></td><td></td><td></td><td></td><td><div class="actions"><button class="secondary edit">编辑</button><button class="danger revoke">吊销</button></div></td>`;
+            row.querySelector('strong').textContent=key.name; row.querySelector('.muted').textContent=key.prefix+'…';
+            row.children[1].textContent=`${key.bucket.capacity} / ${key.bucket.refillTokensPerSecond} 每秒`;
+            row.children[2].textContent=local(key.expiresAt); row.children[3].textContent=revoked?'已吊销':expired?'已过期':'有效';
+            row.querySelector('.edit').disabled=revoked;
+            row.querySelector('.revoke').disabled=revoked;
+            row.querySelector('.edit').onclick=async()=>{
+              const name=prompt('名称',key.name); if(name===null)return;
+              const capacity=prompt('桶容量',key.bucket.capacity); if(capacity===null)return;
+              const refill=prompt('每秒补充令牌数',key.bucket.refillTokensPerSecond); if(refill===null)return;
+              const expires=prompt('RFC3339 过期时间；留空表示永不过期',key.expiresAt||''); if(expires===null)return;
+              await api(`/api/v1/admin/training-keys/${key.id}`,{method:'PATCH',body:JSON.stringify({name,bucket:{capacity:String(capacity),refillTokensPerSecond:Number(refill)},expiresAt:expires,clearExpiration:!expires})});
+              show('密钥配置已更新'); await load();
+            };
+            row.querySelector('.revoke').onclick=async()=>{
+              if(!confirm(`确定永久吊销 ${key.name}？`))return;
+              await api(`/api/v1/admin/training-keys/${key.id}`,{method:'DELETE'}); show('密钥已吊销'); await load();
+            };
+            return row;
+          }));
+        }
+        $('login').onclick=async()=>{
+          adminToken=$('admin-token').value;
+          try{await load();$('admin-token').value='';$('login-panel').hidden=true;$('manager').hidden=false;notice.hidden=true;}catch(error){adminToken='';show(error.message,true);}
+        };
+        $('refresh').onclick=()=>load().catch(error=>show(error.message,true));
+        $('create-form').onsubmit=async event=>{
+          event.preventDefault(); const values=new FormData(event.currentTarget);
+          try{
+            const result=await api('/api/v1/admin/training-keys',{method:'POST',body:JSON.stringify({name:values.get('name'),bucket:{capacity:String(values.get('capacity')),refillTokensPerSecond:Number(values.get('refill'))},expiresAt:iso(values.get('expires'))})});
+            $('secret').textContent=result.secret;$('secret-panel').hidden=false;show('密钥创建成功');await load();
+          }catch(error){show(error.message,true);}
+        };
+      })();
+    </script>
+  </body>
+</html>

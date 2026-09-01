@@ -11,6 +11,8 @@ services:
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
       DATABASE_URL: postgres://vorax:vorax_local_only@postgres:5432/vorax?sslmode=disable
       REDIS_URL: redis://redis:6379/0
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      TRAINING_KEY_FILE: /data/training-api-keys.json
     ports:
       - "127.0.0.1:8080:8080"
     volumes:

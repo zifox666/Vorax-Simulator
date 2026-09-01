@@ -16,13 +16,26 @@ import (
 	"vorax/internal/application"
 	pb "vorax/internal/protocol"
 	"vorax/internal/storage"
+	"vorax/internal/training"
 )
+
+type TrainingDependencies struct {
+	Service            *training.Service
+	Keys               *training.KeyManager
+	Limiter            training.BucketLimiter
+	LimiterUnavailable bool
+	AdminToken         string
+}
 
 // Router serves the application. publicOrigin is the externally visible origin
 // (for example, https://ky.dscan.icu) when TLS terminates at a reverse proxy.
 // An empty value derives the origin from the direct request, which is suitable
 // for local HTTP development.
 func Router(svc *application.Service, cache *storage.Cache, assets http.FileSystem, publicOrigin string) (*gin.Engine, error) {
+	return RouterWithTraining(svc, cache, assets, publicOrigin, nil)
+}
+
+func RouterWithTraining(svc *application.Service, cache *storage.Cache, assets http.FileSystem, publicOrigin string, trainingDeps *TrainingDependencies) (*gin.Engine, error) {
 	publicOrigin, err := normalizeOrigin(publicOrigin)
 	if err != nil {
 		return nil, err
@@ -73,11 +86,11 @@ func Router(svc *application.Service, cache *storage.Cache, assets http.FileSyst
 	registerVisibleAI(api)
 	api.POST("/ai/decide", func(c *gin.Context) {
 		var req struct {
-			StateToken string        `json:"stateToken"`
+			StateToken  string          `json:"stateToken"`
 			Observation *ai.Observation `json:"observation"`
-			Strategy   string        `json:"strategy"`
-			Samples    int           `json:"samples"`
-			Rollouts   int           `json:"rollouts"`
+			Strategy    string          `json:"strategy"`
+			Samples     int             `json:"samples"`
+			Rollouts    int             `json:"rollouts"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(400, gin.H{"code": "INVALID_JSON", "message": "请求体不符合 AI 接口结构"})
@@ -111,6 +124,9 @@ func Router(svc *application.Service, cache *storage.Cache, assets http.FileSyst
 		}
 		c.JSON(200, gin.H{"action": act, "strategy": req.Strategy, "observation": obs})
 	})
+	if trainingDeps != nil && trainingDeps.Service != nil && trainingDeps.Keys != nil {
+		registerTraining(r, assets, publicOrigin, trainingDeps)
+	}
 	r.NoRoute(func(c *gin.Context) {
 		if c.Request.Method != http.MethodGet || strings.HasPrefix(c.Request.URL.Path, "/api/") {
 			c.Status(404)

@@ -14,6 +14,12 @@ POST /api/v1/ai/decide
 # → { "action": {"type":"choose","cardId":"...","targetSlots":[2]}, "observation": {...} }
 ```
 
+## 外部 AI 训练
+
+服务端提供有限信息的单局与批量 `reset/step` API、加密无状态训练令牌，以及 Gymnasium
+单环境/VectorEnv 客户端。设置 `ADMIN_TOKEN` 后可在 `/admin` 创建带过期时间和令牌桶的训练
+API Key。完整接口、部署和 Python 示例见 [`docs/training-api.md`](docs/training-api.md)。
+
 ## 开始使用
 
 推荐使用 Docker

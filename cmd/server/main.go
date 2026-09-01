@@ -11,11 +11,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"vorax/internal/application"
 	"vorax/internal/storage"
+	"vorax/internal/training"
 	"vorax/internal/transport"
 	"vorax/web"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -63,7 +65,27 @@ func main() {
 		defer cache.Client.Close()
 	}
 	svc := &application.Service{Rules: rules, Signer: signer}
-	router, err := transport.Router(svc, cache, http.FS(web.Files), os.Getenv("PUBLIC_ORIGIN"))
+	keyStore, err := training.OpenKeyStore(os.Getenv("DATABASE_URL"), env("TRAINING_KEY_FILE", ".local/training-api-keys.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer keyStore.Close()
+	trainingSvc, err := training.NewService(rules, training.NewEpisodeCodec(signer))
+	if err != nil {
+		log.Fatal(err)
+	}
+	var limiter training.BucketLimiter = training.NewMemoryBucketLimiter()
+	limiterUnavailable := false
+	if os.Getenv("REDIS_URL") != "" {
+		if cache == nil {
+			limiter, limiterUnavailable = nil, true
+			log.Print("Redis 已配置但不可用：训练 API 将返回 503，普通模拟器继续运行")
+		} else {
+			limiter = &training.RedisBucketLimiter{Client: cache.Client}
+		}
+	}
+	trainingDeps := &transport.TrainingDependencies{Service: trainingSvc, Keys: training.NewKeyManager(keyStore), Limiter: limiter, LimiterUnavailable: limiterUnavailable, AdminToken: os.Getenv("ADMIN_TOKEN")}
+	router, err := transport.RouterWithTraining(svc, cache, http.FS(web.Files), os.Getenv("PUBLIC_ORIGIN"), trainingDeps)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -47,7 +47,7 @@ test('reward jar component compiles with the bundled Vue runtime without a brows
 test('lab, completion and history use the shared reward jar component',()=>{
   const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
   assert.equal((html.match(/<reward-jars\b/g)||[]).length,3);
-  assert.match(html,/<h2>本次实验完成<\/h2>\s*<reward-jars :rewards="state.rewards"><\/reward-jars>\s*<strong>/);
+  assert.match(html,/<h2>游戏结束<\/h2>\s*<reward-jars :rewards="state.rewards"><\/reward-jars>\s*<strong>/);
   assert.match(html,/<td class="history-rewards">\s*<reward-jars :rewards="run.view.state.rewards">/);
   assert.ok(html.includes(':data-rarity="slot.monster?.rarity"'));
 });

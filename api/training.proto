@@ -1,0 +1,198 @@
+syntax = "proto3";
+package vorax.training.v1;
+option go_package = "vorax/internal/protocol;protocol";
+
+import "api/game.proto";
+
+message TrainingAction {
+  string type = 1;
+  string card_id = 2;
+  repeated int32 target_slots = 3;
+}
+
+message TrainingSlotObservation {
+  string definition_id = 1;
+  string name = 2;
+  int32 index = 3;
+  int32 family = 4;
+  int32 rarity = 5;
+  int64 activity = 6;
+  int64 quantity = 7;
+}
+
+message TrainingOfferObservation {
+  int32 kind = 1;
+  int64 reward_threshold = 2;
+}
+
+message TrainingTargetSet { repeated int32 slots = 1; }
+
+message TrainingCardObservation {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  int32 kind = 4;
+  int32 rarity = 5;
+  bool playable = 6;
+  repeated TrainingTargetSet target_sets = 7;
+}
+
+message TrainingClaimObservation {
+  int64 threshold = 1;
+  string status = 2;
+}
+
+message TrainingRewardObservation {
+  repeated int32 jars = 1;
+  int32 drop_bonus_percent = 2;
+  int64 next_threshold = 3;
+  string next_reward_label = 4;
+  repeated TrainingClaimObservation tool_claims = 5;
+}
+
+message TrainingObservation {
+  string phase = 1;
+  string stage_label = 2;
+  int32 base_cursor = 3;
+  int32 completed_turns = 4;
+  int64 score = 5;
+  repeated TrainingSlotObservation slots = 6;
+  repeated string tools = 7;
+  repeated string tool_names = 8;
+  TrainingOfferObservation offer = 9;
+  repeated TrainingCardObservation cards = 10;
+  bool can_skip = 11;
+  bool can_refresh = 12;
+  int32 potion_refreshes = 13;
+  int32 tool_refreshes = 14;
+  TrainingRewardObservation rewards = 15;
+}
+
+// Fixed-shape integer tensors. Catalog indexes use 0 for empty/padding and
+// otherwise are one-based indexes into TrainingSpec monster_ids/card_ids.
+message TensorObservation {
+  int32 phase = 1;
+  repeated int32 progress = 2;             // [base_cursor, completed_turns]
+  int64 score = 3;
+  repeated int32 slot_monsters = 4;         // [6]
+  repeated int32 slot_families = 5;         // [6]
+  repeated int32 slot_rarities = 6;         // [6]
+  repeated int64 slot_activities = 7;       // [6]
+  repeated int64 slot_quantities = 8;       // [6]
+  repeated int32 tool_counts = 9;           // [tool_count]
+  repeated int32 offer = 10;                // [kind]
+  int64 offer_reward_threshold = 11;
+  repeated int32 candidate_cards = 12;      // [5]
+  repeated int32 candidate_playable = 13;   // [5]
+  repeated int32 refreshes = 14;             // [potion, tool]
+  repeated int32 reward_jars = 15;           // [6]
+  int32 drop_bonus_percent = 16;
+  repeated int32 tool_claim_statuses = 17;   // [2], LOCKED=0/PENDING=1/CLAIMED=2
+  int64 next_reward_threshold = 18;
+}
+
+message TrainingInfo {
+  int64 score = 1;
+  string rules_version = 2;
+  string content_version = 3;
+  string rng_version = 4;
+  string spec_version = 5;
+}
+
+message TrainingTransition {
+  string episode_token = 1;
+  TrainingObservation observation = 2;
+  TensorObservation tensor_observation = 3;
+  repeated TrainingAction legal_actions = 4;
+  repeated int32 action_mask = 5;
+  int64 reward = 6;
+  bool terminated = 7;
+  bool truncated = 8;
+  TrainingInfo info = 9;
+}
+
+message TrainingActionSpec {
+  int32 index = 1;
+  TrainingAction action = 2;
+}
+
+message TrainingTensorSpec {
+  int32 slot_count = 1;
+  int32 candidate_count = 2;
+  int32 tool_count = 3;
+  int32 action_count = 4;
+  string integer_encoding = 5;
+}
+
+message TrainingSpec {
+  string spec_version = 1;
+  string spec_hash = 2;
+  string rules_version = 3;
+  string content_version = 4;
+  string rng_version = 5;
+  repeated string monster_ids = 6;
+  repeated string card_ids = 7;
+  repeated string tool_ids = 8;
+  repeated TrainingActionSpec actions = 9;
+  TrainingTensorSpec tensor = 10;
+}
+
+message TrainingResetRequest {
+  string seed = 1;
+  int32 pet_refreshes = 2;
+}
+
+message TrainingStepRequest {
+  string episode_token = 1;
+  oneof selected_action {
+    int32 action_index = 2;
+    TrainingAction action = 3;
+  }
+}
+
+message TrainingBatchResetRequest { repeated TrainingResetRequest items = 1; }
+message TrainingBatchStepRequest { repeated TrainingStepRequest items = 1; }
+
+message TrainingItemResult {
+  oneof outcome {
+    TrainingTransition transition = 1;
+    vorax.v1.APIError error = 2;
+  }
+}
+
+message TrainingBatchResponse { repeated TrainingItemResult results = 1; }
+
+message TokenBucketConfig {
+  int64 capacity = 1;
+  double refill_tokens_per_second = 2;
+}
+
+message TrainingKeyRecord {
+  string id = 1;
+  string name = 2;
+  string prefix = 3;
+  TokenBucketConfig bucket = 4;
+  string created_at = 5;
+  string expires_at = 6;
+  string revoked_at = 7;
+}
+
+message ListTrainingKeysResponse { repeated TrainingKeyRecord keys = 1; }
+
+message CreateTrainingKeyRequest {
+  string name = 1;
+  TokenBucketConfig bucket = 2;
+  string expires_at = 3;
+}
+
+message CreateTrainingKeyResponse {
+  TrainingKeyRecord key = 1;
+  string secret = 2;
+}
+
+message UpdateTrainingKeyRequest {
+  string name = 1;
+  TokenBucketConfig bucket = 2;
+  string expires_at = 3;
+  bool clear_expiration = 4;
+}

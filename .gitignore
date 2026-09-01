@@ -11,6 +11,10 @@ coverage.out
 .idea/
 .vscode/
 *.exe
+.venv/
+.pytest_cache/
+__pycache__/
+*.pyc
 
 渴瘾玩法说明书.md
 docker-compose.yaml

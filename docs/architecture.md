@@ -79,7 +79,9 @@ stateDiagram-v2
 
 ## 4. 接口与存档契约
 
-详细字段以 `api/game.proto` 为唯一契约。HTTP 使用 ProtoJSON，大整数以十进制字符串传输，前端不把分数转成 JS Number。
+游戏字段以 `api/game.proto` 为契约，训练与管理字段以 `api/training.proto` 为契约。HTTP 使用 ProtoJSON，大整数以十进制字符串传输，前端不把分数转成 JS Number。
+
+外部训练接口只返回 `ai.Observation` 对应的玩家可见信息及其固定张量编码。完整引擎状态封装在用途隔离的 AES-GCM `episodeToken` 中；服务端无会话地解密、验证并执行动作。训练 Key 仅保存哈希，单机使用本地文件与内存令牌桶，多实例使用 PostgreSQL 与 Redis。
 
 | 接口 | 请求重点 | 返回 |
 |---|---|---|

@@ -6,6 +6,6 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Unable to install protoc-gen-go' }
     $taskGoBin = Join-Path (go env GOPATH) 'bin'
     $env:PATH = "$taskGoBin;$env:PATH"
-    protoc --go_out=. --go_opt=module=vorax api/game.proto
+protoc --go_out=. --go_opt=module=vorax api/game.proto api/training.proto
     if ($LASTEXITCODE -ne 0) { throw 'Protobuf generation failed' }
 } finally { Pop-Location }
