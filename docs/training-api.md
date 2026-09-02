@@ -94,3 +94,13 @@ macOS 上直接训练并保存 MaskablePPO 模型的步骤见 [`training/mac/REA
 `/training/spec` 返回 `specVersion`、`specHash`、规则/内容/RNG 版本及卡牌、怪物、动作索引。
 训练代码应缓存并校验这些值；目录变化时必须重新读取规格。相同 seed 与动作轨迹会产生相同
 观察和奖励，但加密令牌因随机 nonce 不会逐字节相同。令牌允许重放和分支，便于对照实验。
+
+## OCR 客户端本地推理
+
+OCR 客户端不使用训练 Key。它通过公开的 `GET /api/v1/ai/model/spec` 读取同一份动作目录和
+`specHash`，再把整理后的可见数据提交到 `POST /api/v1/ai/model/input`。后者只执行规则校验并
+返回 `tensorObservation`、`actionMask` 和规范化观察，不执行决策。客户端随后在本机用
+MaskablePPO 选择动作，并用规格中的动作索引还原结构化动作。
+
+本地模型的 `.zip` 与训练时生成的同名 `.json` 元数据必须一起放入客户端 `models` 目录；
+模型文件不进入客户端构建产物。客户端在加载前严格核对规格、规则和内容版本。

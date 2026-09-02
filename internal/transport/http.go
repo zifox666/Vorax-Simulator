@@ -83,7 +83,11 @@ func RouterWithTraining(svc *application.Service, cache *storage.Cache, assets h
 	// 两种调用方式：
 	//   1. stateToken 模式：服务端从签名存档构建观察（推荐，信息边界由服务端保证）。
 	//   2. observation 模式：调用方直接传入观察 JSON（适合外部研究脚本）。
-	registerVisibleAI(api)
+	modelSpec, err := training.NewSpec(svc.Rules)
+	if err != nil {
+		return nil, fmt.Errorf("create public model specification: %w", err)
+	}
+	registerVisibleAI(api, modelSpec)
 	api.POST("/ai/decide", func(c *gin.Context) {
 		var req struct {
 			StateToken  string          `json:"stateToken"`

@@ -44,6 +44,10 @@ def test_ocr_geometry_empty_slots_and_text_boundary():
     scaled = Frame(f.width * 2, f.height * 2 + 40,
                    [replace(line, box=[[x * 2, y * 2 + 40] for x, y in line.box]) for line in f.lines])
     assert parser.parse(scaled).slots == reward.slots
+    activity_icon = replace(frame(3), lines=[
+        replace(line, text="$36") if line.text == "36" else line for line in frame(3).lines
+    ])
+    assert parser.parse(activity_icon).slots == potion.slots
     assert normalized("麻药酊剂 一 觉醒者") == normalized("麻药酊剂-觉醒者")
     assert match_name("孪生激素-骨卫兵", CATALOG["cards"]) is None
     assert match_name("异端学者", CATALOG["monsters"])["id"] == "awakener_heretic_scholar"
@@ -159,6 +163,9 @@ def test_missed_frames_are_not_invented_tool_choices():
     assert s.completed == 0 and s.tools == ["claw"]
     with pytest.raises(ReadError, match="内容版本"):
         s.prepare(potion, {**CATALOG, "rulesVersion": "new-rules"})
+    migrated, visible = s.prepare(potion, {**CATALOG, "rulesVersion": "new-rules"}, test_mode=True)
+    assert visible["rulesVersion"] == "new-rules"
+    assert any("测试模式已将当前对局迁移" in warning for warning in migrated.warnings)
     # A recommendation to refresh is never recorded as an acquired tool.
     s, _ = Session(0).prepare(opening, CATALOG)
     s.suggestion = {"type": "refresh"}

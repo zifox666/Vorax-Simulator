@@ -7,6 +7,12 @@ import pytest
 
 from vorax_assistant.client import Client
 from vorax_assistant.controller import Controller
+from vorax_assistant.local_model import (
+    LocalModelError,
+    available_models,
+    build_model_projection,
+    resolve_model,
+)
 from vorax_assistant.ocr import Frame
 from vorax_assistant.settings import Settings, server_url
 
@@ -34,6 +40,58 @@ def test_settings_persist_without_touching_session(tmp_path):
     settings.save(path)
     assert Settings.load(path) == settings
     assert not (tmp_path / "session.json").exists()
+
+
+def test_settings_load_old_file_and_persist_decision_backend(tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text('{"server":"localhost:8080","show_guidance":true}', encoding="utf-8")
+    assert Settings.load(path) == Settings(server="http://localhost:8080")
+    settings = Settings(decision_backend="local", local_model="policy.zip", test_mode=True)
+    settings.save(path)
+    assert Settings.load(path) == settings
+
+
+def test_local_model_discovery_requires_unambiguous_zip(tmp_path):
+    assert available_models(tmp_path) == []
+    with pytest.raises(LocalModelError, match="未在"):
+        resolve_model(tmp_path)
+    (tmp_path / "b.zip").write_bytes(b"")
+    assert resolve_model(tmp_path).name == "b.zip"
+    (tmp_path / "A.zip").write_bytes(b"")
+    assert available_models(tmp_path) == ["A.zip", "b.zip"]
+    with pytest.raises(LocalModelError, match="多个模型"):
+        resolve_model(tmp_path)
+    assert resolve_model(tmp_path, "A.zip").name == "A.zip"
+    with pytest.raises(LocalModelError, match="文件名"):
+        resolve_model(tmp_path, "../A.zip")
+
+
+def test_model_contract_projection_maps_by_semantic_ids():
+    model_spec = {
+        "cardIds": ["alpha", "zeta"],
+        "monsterIds": ["old", "shared"],
+        "toolIds": ["zeta"],
+        "actions": [
+            {"index": 0, "action": {"type": "skip_unknown"}},
+            {"index": 1, "action": {"type": "choose", "cardId": "zeta"}},
+            {"index": 2, "action": {"type": "choose", "cardId": "removed"}},
+        ],
+    }
+    specification = {
+        "cardIds": ["alpha", "new", "zeta"],
+        "monsterIds": ["new", "shared"],
+        "toolIds": ["new", "zeta"],
+        "actions": [
+            {"index": 0, "action": {"type": "skip_unknown"}},
+            {"index": 1, "action": {"type": "choose", "cardId": "new"}},
+            {"index": 2, "action": {"type": "choose", "cardId": "zeta"}},
+        ],
+    }
+    projection = build_model_projection(model_spec, specification, 3)
+    assert projection["action_indices"] == [0, 2, None]
+    assert projection["card_id_map"] == {1: 1, 2: 0, 3: 2}
+    assert projection["monster_id_map"] == {1: 0, 2: 2}
+    assert projection["tool_indices"] == [1]
 
 
 @pytest.mark.parametrize("next_frame", [2, 3])

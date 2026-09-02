@@ -13,6 +13,13 @@ def main():
     parser.add_argument("--console-hosted", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--pet", type=int, choices=(0, 1, 2), default=0)
     parser.add_argument("--models", type=Path, default=base / "model")
+    parser.add_argument("--decision-models", type=Path, default=base / "models",
+                        help="本地决策模型目录（默认程序旁的 models）")
+    parser.add_argument("--decision-backend", choices=("cloud", "local"),
+                        help="临时覆盖已保存的决策方式")
+    parser.add_argument("--decision-model", help="临时指定 models 目录中的模型 .zip 文件名")
+    parser.add_argument("--test-mode", action=argparse.BooleanOptionalAction, default=None,
+                        help="忽略版本和可兼容的数据差异，尽力继续实机流程测试")
     parser.add_argument("--data", type=Path, default=Path(os.environ.get("LOCALAPPDATA", str(base / ".local"))) / "VoraxAssistant")
     parser.add_argument("--rollouts", type=int, choices=range(1, 65), default=16, metavar="1..64")
     source = parser.add_mutually_exclusive_group()
@@ -31,7 +38,16 @@ def main():
         settings = Settings.load(args.data / "settings.json")
         if args.server is not None:
             settings.server = server_url(args.server)
+        if args.decision_backend is not None:
+            settings.decision_backend = args.decision_backend
+        if args.decision_model is not None:
+            settings.local_model = args.decision_model
+        if args.test_mode is not None:
+            settings.test_mode = args.test_mode
         args.server = settings.server
+        args.decision_backend = settings.decision_backend
+        args.decision_model = settings.local_model
+        args.test_mode = settings.test_mode
         if args.image or args.ocr_json:
             result = asyncio.run(offline(args))
             text = json.dumps(result, ensure_ascii=False, indent=2)
@@ -52,7 +68,10 @@ def main():
                 console_notice = f"默认竖向窗口设置失败，可手动调整窗口：{exc}"
             from .controller import Controller
             from .tui import Companion
-            controller = Controller(args.server, args.pet, args.models, args.data, args.rollouts)
+            controller = Controller(
+                args.server, args.pet, args.models, args.data, args.rollouts,
+                args.decision_models, settings.decision_backend, settings.local_model, settings.test_mode,
+            )
             if args.new:
                 asyncio.run(controller.new_session(args.pet))
             Companion(controller, settings, console_notice).run()
@@ -73,7 +92,10 @@ async def offline(args):
     if args.ocr_only:
         return frame.to_dict()
     from .controller import Controller
-    controller = Controller(args.server, args.pet, args.models, args.data, args.rollouts)
+    controller = Controller(
+        args.server, args.pet, args.models, args.data, args.rollouts,
+        args.decision_models, args.decision_backend or "cloud", args.decision_model or "", bool(args.test_mode),
+    )
     try:
         if args.new:
             await controller.new_session(args.pet)

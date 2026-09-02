@@ -24,7 +24,7 @@ func potionTestPlay(t *testing.T, s *pb.GameState, r *Rules, id string, ids ...s
 
 func TestPotionCatalogComplete(t *testing.T) {
 	cards := potionCards()
-	if len(cards) != 40 {
+	if len(cards) != 41 {
 		t.Fatalf("got %d potion definitions", len(cards))
 	}
 	ids, names := map[string]bool{}, map[string]bool{}
@@ -37,10 +37,41 @@ func TestPotionCatalogComplete(t *testing.T) {
 		}
 		ids[card.Id], names[card.Name] = true, true
 	}
-	for _, id := range []string{"insect_powder", "bone_powder", "awaker_fluid", "fiend_fluid", "awakening", "digestive", "mutation", "fusion", "insect_boost", "lure", "holy_water", "box_3", "box_5", "normal_box_3", "normal_box_5"} {
+	for _, id := range []string{"insect_powder", "bone_powder", "awaker_fluid", "fiend_fluid", "awakening", "digestive", "mutation", "fusion", "insect_boost", "lure", "holy_water", "waking_salts", "box_3", "box_5", "normal_box_3", "normal_box_5"} {
 		if !ids[id] {
 			t.Fatalf("missing %s", id)
 		}
+	}
+}
+
+func TestPotionWakingSaltsBuffsExactlyOneRandomMonster(t *testing.T) {
+	s, r := fixture(t)
+	if validTargets(s, r.Card("waking_salts"), nil) {
+		t.Fatal("waking salts is playable without monsters")
+	}
+	ids := []string{
+		put(s, 0, pb.Family_BONE, pb.MonsterRarity_NORMAL, 10, 20),
+		put(s, 2, pb.Family_FIEND, pb.MonsterRarity_MAGIC, 30, 40),
+		put(s, 5, pb.Family_INSECT, pb.MonsterRarity_RARE, 50, 60),
+	}
+	before := proto.Clone(s).(*pb.GameState)
+	c := potionTestPlay(t, s, r, "waking_salts")
+	d := potionTestPlay(t, before, r, "waking_salts")
+	if !proto.Equal(c.state, d.state) || len(c.events) != len(d.events) {
+		t.Fatal("waking salts random choice is not replayable")
+	}
+	changed := 0
+	for i, id := range ids {
+		m := getMonster(s, id)
+		wantActivity, wantQuantity := int64(10+20*i), int64(20+20*i)
+		if m.Activity == wantActivity+111 && m.Quantity == wantQuantity+111 {
+			changed++
+		} else if m.Activity != wantActivity || m.Quantity != wantQuantity {
+			t.Fatalf("unexpected waking salts stats: %v", m)
+		}
+	}
+	if changed != 1 || eventCount(c.events, "stats_changed") != 1 {
+		t.Fatalf("waking salts changed %d monsters", changed)
 	}
 }
 

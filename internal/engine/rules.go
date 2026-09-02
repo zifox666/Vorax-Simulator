@@ -9,7 +9,7 @@ import (
 // RulesVersion and ContentVersion identify the initial public data snapshot.
 // Change either value only when publishing a new, immutable rules or content set.
 const RulesVersion = "rules-v3"
-const ContentVersion = "cards-v3"
+const ContentVersion = "cards-v4"
 
 // RNGVersion identifies the random-draw semantics. Bump it whenever draw
 // behavior changes (e.g. distribution or consumption), so old saves fail

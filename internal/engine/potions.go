@@ -30,6 +30,7 @@ func potionCards() []*pb.CardDefinition {
 		{Id: "mutagen_powder", Name: "诱变药粉", Description: "选择1-2组怪物+52数量，使其变异为随机稀有怪物", Rarity: blue, MinTargets: 1, MaxTargets: 2, Effects: []*pb.EffectSpec{{Op: "buff", Selector: "selected", Quantity: 52}, {Op: "mutate", Selector: "selected", Rarity: pb.MonsterRarity_RARE}}, Enabled: true},
 		{Id: "holy_water", Name: "至纯圣水", Description: "所有觉醒者觉醒为高2阶稀有度的怪物，如果觉醒前稀有度为首领则变为随机首领觉醒者", Rarity: red, Handler: "potion_holy_water"},
 		{Id: "peat_dressing", Name: "疫区泥炭敷料", Description: "至少拥有1组骨卫兵时，移除所有非骨卫兵怪物，每移除1组怪物，使所有骨卫兵+20活性+20数量", Rarity: red, Handler: "potion_peat_dressing", Enabled: true},
+		{Id: "waking_salts", Name: "惊醒嗅盐", Description: "随机选择1组怪物，使其+111活性、+111数量", Rarity: red, Handler: "potion_waking_salts", Enabled: true},
 		{Id: "box_3", Name: "稀有药剂箱(小)", Description: "包含3支随机药剂，稀有和至臻药剂概率翻倍", Rarity: gold, Handler: "potion_box_3"},
 		{Id: "box_5", Name: "稀有药剂箱(大)", Description: "包含5支随机药剂，稀有和至臻药剂概率翻倍", Rarity: gold, Handler: "potion_box_5"},
 		{Id: "normal_box_3", Name: "药剂箱(小)", Description: "包含3支随机药剂", Rarity: gold, Handler: "potion_normal_box_3"},
@@ -69,7 +70,7 @@ func potionTargetsValid(s *pb.GameState, card *pb.CardDefinition, ids []string) 
 			}
 		}
 		return false
-	case "potion_gray_marrow", "potion_brain_fog", "potion_bone_growth_powder", "potion_eggshell_powder":
+	case "potion_gray_marrow", "potion_brain_fog", "potion_bone_growth_powder", "potion_eggshell_powder", "potion_waking_salts":
 		return len(monsterIDs(s)) > 0
 	}
 	return true
@@ -240,6 +241,8 @@ func (c *context) applyPotion(handler string, ids []string) {
 				c.transform(id, 0, 0, true, 2)
 			}
 		}
+	case "potion_waking_salts":
+		c.potionBuff(c.potionRandom(monsterIDs(c.state), 1), 111, 111)
 	case "potion_fresh_marrow_powder":
 		for _, id := range c.potionRandom(c.potionOtherFamily(pb.Family_FIEND), 3) {
 			c.transform(id, pb.Family_FIEND, 0, false, 0)

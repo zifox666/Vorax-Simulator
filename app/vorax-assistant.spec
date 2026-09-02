@@ -6,8 +6,12 @@ a = Analysis(
     [str(root / "launcher.py")],
     pathex=[str(root / "src")],
     binaries=[],
-    datas=collect_data_files("rapidocr"),
-    hiddenimports=collect_submodules("rapidocr.inference_engine.onnxruntime"),
+    datas=(collect_data_files("rapidocr")
+           + collect_data_files("stable_baselines3", includes=["version.txt"])
+           + collect_data_files("sb3_contrib", includes=["version.txt"])),
+    hiddenimports=(collect_submodules("rapidocr.inference_engine.onnxruntime")
+                   + collect_submodules("vorax_gym")
+                   + collect_submodules("sb3_contrib")),
     hookspath=[], hooksconfig={}, runtime_hooks=[], excludes=[], noarchive=False,
 )
 pyz = PYZ(a.pure)

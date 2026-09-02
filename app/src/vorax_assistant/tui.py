@@ -8,6 +8,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, DataTable, Footer, Header, Input, Select, Static
 
 from .controller import Controller
+from .local_model import available_models
 from .settings import Settings, server_url
 from .windows import Hotkey, capture
 
@@ -39,21 +40,33 @@ class SettingsWindow(ModalScreen[Settings | None]):
     #settings-dialog { width: 100%; max-width: 64; height: auto; max-height: 90%; padding: 1 2; border: round $accent; background: $surface; }
     #settings-title { text-style: bold; margin-bottom: 1; }
     #settings-server { margin: 1 0; }
+    #settings-backend, #settings-model { margin-bottom: 1; }
     #settings-error { height: auto; color: $error; }
     #settings-actions { height: 3; margin-top: 1; }
     #settings-actions Button { width: 1fr; min-width: 8; }
     """
     BINDINGS = [("escape", "cancel", "取消")]
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, decision_models):
         super().__init__()
         self.settings = settings
+        self.decision_models = decision_models
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="settings-dialog"):
             yield Static("设置", id="settings-title")
             yield Static("服务器地址（保存后立即切换，不清空对局）")
             yield Input(value=self.settings.server, placeholder="http://127.0.0.1:8080", id="settings-server")
+            yield Static("决策方式")
+            yield Select([("云端纯算法", "cloud"), ("本地模型", "local")],
+                         value=self.settings.decision_backend, allow_blank=False, id="settings-backend")
+            yield Static(f"本地模型（读取 {self.decision_models}，建议同时放入同名 .json）", markup=False)
+            model_names = available_models(self.decision_models)
+            model_options = [("自动选择目录中唯一模型", ""), *((name, name) for name in model_names)]
+            model_value = self.settings.local_model if self.settings.local_model in model_names else ""
+            yield Select(model_options, value=model_value, allow_blank=False, id="settings-model")
+            yield Checkbox("测试模式：忽略版本差异并尽力继续", value=self.settings.test_mode,
+                           id="settings-test-mode")
             yield Checkbox("显示顶部操作提示", value=self.settings.show_guidance, id="settings-guidance")
             yield Static("", id="settings-error", markup=False)
             with Horizontal(id="settings-actions"):
@@ -65,8 +78,13 @@ class SettingsWindow(ModalScreen[Settings | None]):
 
     def save_settings(self):
         try:
-            settings = Settings(server_url(self.query_one("#settings-server", Input).value),
-                                self.query_one("#settings-guidance", Checkbox).value)
+            settings = Settings(
+                server=server_url(self.query_one("#settings-server", Input).value),
+                show_guidance=self.query_one("#settings-guidance", Checkbox).value,
+                decision_backend=str(self.query_one("#settings-backend", Select).value),
+                local_model=str(self.query_one("#settings-model", Select).value),
+                test_mode=self.query_one("#settings-test-mode", Checkbox).value,
+            )
         except ValueError as exc:
             self.query_one("#settings-error", Static).update(str(exc))
             return
@@ -95,6 +113,7 @@ class Companion(App):
     #actions { height: 3; }
     #actions Button { width: 1fr; min-width: 8; }
     #server { height: auto; color: $text-muted; }
+    #backend { height: auto; color: $text-muted; }
     #status { height: auto; min-height: 2; }
     #board { height: 10; }
     #tools { height: auto; margin: 1 0; }
@@ -126,6 +145,7 @@ class Companion(App):
                     yield Button("新对局 (N)", id="new")
                     yield Button("退出 (Q)", id="quit")
             yield Static(f"服务器：{self.settings.server}", id="server", markup=False)
+            yield Static(self.backend_text(), id="backend", markup=False)
             yield Static("正在连接服务端并加载本地 OCR 模型……", id="status", markup=False)
             yield DataTable(id="board")
             yield Static("已获得用具：尚未记录", id="tools", markup=False)
@@ -142,6 +162,13 @@ class Companion(App):
         self.hotkey.start()
         self.run_worker(self.initialize(), exclusive=True, group="scan")
 
+    def backend_text(self) -> str:
+        if self.settings.decision_backend == "local":
+            model = self.settings.local_model or "自动选择"
+            suffix = " · ⚠ 测试模式" if self.settings.test_mode else ""
+            return f"决策：本地模型（{model}）{suffix}"
+        return f"决策：云端纯算法（推演 {self.controller.client.rollouts} 次）"
+
     async def initialize(self):
         self.busy = True
         try:
@@ -149,8 +176,8 @@ class Companion(App):
             restored = self.controller.session.last is not None
             self.query_one("#status", Static).update("已恢复本地记录，请识别当前游戏页面。" if restored else "准备就绪：切回游戏，按 ~ 识别。")
             self.query_one("#pet", Select).disabled = restored
-            if self.console_notice:
-                self.query_one("#warnings", Static).update(self.console_notice)
+            notices = [message for message in (self.console_notice, self.controller.model_warning) if message]
+            self.query_one("#warnings", Static).update("\n".join(notices))
         except Exception as exc:
             self.show_error(str(exc))
         finally:
@@ -204,7 +231,10 @@ class Companion(App):
             f"用具刷新 {session.tool_refreshes if session.tool_refreshes is not None else '未读到'}"
         )
         self.query_one("#result", Static).update(action_text(response["action"], catalog, snapshot.card_labels))
-        self.query_one("#warnings", Static).update("\n".join(session.warnings))
+        warnings = [*session.warnings]
+        if self.controller.model_warning:
+            warnings.append(self.controller.model_warning)
+        self.query_one("#warnings", Static).update("\n".join(warnings))
         self.query_one("#pet", Select).disabled = True
 
     async def action_new_session(self):
@@ -223,7 +253,7 @@ class Companion(App):
         if self.busy:
             self.query_one("#status", Static).update("正在识别或连接，完成后可打开设置。")
             return
-        self.push_screen(SettingsWindow(self.settings), self.apply_settings)
+        self.push_screen(SettingsWindow(self.settings, self.controller.decision_models), self.apply_settings)
 
     async def apply_settings(self, settings: Settings | None):
         if settings is None:
@@ -231,14 +261,22 @@ class Companion(App):
         try:
             settings.save(self.settings_path)
             changed = settings.server != self.settings.server
+            decision_changed = (settings.decision_backend != self.settings.decision_backend
+                                or settings.local_model != self.settings.local_model
+                                or settings.test_mode != self.settings.test_mode)
             if changed:
                 await self.controller.change_server(settings.server)
+            if decision_changed:
+                await self.controller.change_decision(
+                    settings.decision_backend, settings.local_model, settings.test_mode
+                )
             self.settings = settings
             self.query_one("#guidance-panel").display = settings.show_guidance
             self.query_one("#server", Static).update(f"服务器：{settings.server}")
-            if changed:
-                self.query_one("#result", Static).update("服务器已切换，对局记录保留；连接成功后请重新识别。")
-                self.query_one("#status", Static).update("正在连接新服务器……")
+            self.query_one("#backend", Static).update(self.backend_text())
+            if changed or decision_changed:
+                self.query_one("#result", Static).update("决策配置已切换，对局记录保留；连接成功后请重新识别。")
+                self.query_one("#status", Static).update("正在加载决策配置……")
                 self.busy = True
                 self.run_worker(self.initialize(), exclusive=True, group="scan")
         except (OSError, ValueError, RuntimeError) as exc:

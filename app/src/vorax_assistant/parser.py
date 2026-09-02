@@ -45,6 +45,10 @@ def match_name(text: str, entries: list[dict]) -> dict | None:
 
 def integer(text: str) -> int | None:
     text = unicodedata.normalize("NFKC", text).replace(" ", "").replace(",", "")
+    # The red activity icon immediately before a total is occasionally
+    # recognized as a currency symbol (for example "$36").  Only tolerate
+    # that single, known prefix; arbitrary non-numeric OCR remains rejected.
+    text = re.sub(r"^[\$¥￥](?=\d+$)", "", text)
     return int(text) if re.fullmatch(r"\d+", text) else None
 
 

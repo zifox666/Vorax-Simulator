@@ -34,3 +34,9 @@ class Client:
         return await self.request("POST", "/api/v1/ai/visible", json={
             "visible": visible, "strategy": "sampler", "rollouts": self.rollouts,
         })
+
+    async def model_spec(self) -> dict:
+        return await self.request("GET", "/api/v1/ai/model/spec")
+
+    async def model_input(self, visible: dict) -> dict:
+        return await self.request("POST", "/api/v1/ai/model/input", json={"visible": visible})

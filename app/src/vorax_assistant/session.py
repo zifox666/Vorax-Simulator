@@ -29,13 +29,13 @@ class Session:
         if self.last is None:
             self.tool_refreshes = self.pet
 
-    def prepare(self, snapshot: Snapshot, catalog: dict) -> tuple["Session", dict]:
+    def prepare(self, snapshot: Snapshot, catalog: dict, test_mode: bool = False) -> tuple["Session", dict]:
         candidate = deepcopy(self)
         candidate.warnings = []
-        candidate._advance(snapshot, catalog)
+        candidate._advance(snapshot, catalog, test_mode)
         return candidate, candidate.visible(catalog)
 
-    def _advance(self, current: Snapshot, catalog: dict):
+    def _advance(self, current: Snapshot, catalog: dict, test_mode: bool = False):
         previous_progress = (self.base_cursor, self.completed, self.unlocked, self.unknown_tools, tuple(self.tools))
         opening_offer = self.last is None
         if self.last is None:
@@ -43,9 +43,22 @@ class Session:
                 raise ReadError("必须从第 1 回合的开局用具候选开始记录；不能补猜已获得用具")
             self.rules_version = catalog["rulesVersion"]
             self.content_version = catalog["contentVersion"]
-        elif (self.rules_version, self.content_version) != (catalog["rulesVersion"], catalog["contentVersion"]):
-            raise ReadError("服务端内容版本已变化，请从下一局重新记录")
         else:
+            versions = (catalog["rulesVersion"], catalog["contentVersion"])
+            if (self.rules_version, self.content_version) != versions:
+                if not test_mode:
+                    raise ReadError("服务端内容版本已变化，请从下一局重新记录")
+                known_tools = {card["id"] for card in catalog.get("cards", []) if card.get("kind") == 3}
+                removed_tools = [tool for tool in self.tools if tool not in known_tools]
+                if removed_tools:
+                    self.tools = [tool for tool in self.tools if tool in known_tools]
+                    self.unknown_tools += len(removed_tools)
+                self.rules_version, self.content_version = versions
+                self.suggestion = None
+                message = "测试模式已将当前对局迁移到服务端最新内容，旧建议已清除"
+                if removed_tools:
+                    message += f"，{len(removed_tools)} 件已移除用具改记为未知"
+                self.warnings.append(message)
             old = self.last
             delta = current.round - old.round
             if delta < 0 or current.unlocked < old.unlocked:

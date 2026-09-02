@@ -672,6 +672,10 @@ def main() -> None:
         "specHash": specification["specHash"],
         "rulesVersion": specification["rulesVersion"],
         "contentVersion": specification["contentVersion"],
+        # Preserve the semantic model contract so future clients can safely
+        # project additive catalog changes back onto this model's own IDs and
+        # action ordering while running in explicit test mode.
+        "modelSpec": specification,
         "evaluationScores": scores,
     }
     output.with_suffix(".json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")

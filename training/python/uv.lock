@@ -1236,6 +1236,10 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+inference = [
+    { name = "sb3-contrib" },
+    { name = "torch" },
+]
 test = [
     { name = "pytest" },
 ]
@@ -1253,11 +1257,13 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8" },
     { name = "rich", marker = "extra == 'train'", specifier = ">=13.7,<15" },
+    { name = "sb3-contrib", marker = "extra == 'inference'", specifier = ">=2.7,<3" },
     { name = "sb3-contrib", marker = "extra == 'train'", specifier = ">=2.7,<3" },
     { name = "tensorboard", marker = "extra == 'train'", specifier = ">=2.16" },
+    { name = "torch", marker = "extra == 'inference'", specifier = ">=2.8" },
     { name = "torch", marker = "extra == 'train'", specifier = ">=2.8" },
 ]
-provides-extras = ["test", "train"]
+provides-extras = ["test", "inference", "train"]
 
 [[package]]
 name = "werkzeug"

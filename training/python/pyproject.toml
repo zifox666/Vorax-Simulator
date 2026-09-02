@@ -11,6 +11,10 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
+inference = [
+  "sb3-contrib>=2.7,<3",
+  "torch>=2.8",
+]
 train = [
   "sb3-contrib>=2.7,<3",
   "rich>=13.7,<15",

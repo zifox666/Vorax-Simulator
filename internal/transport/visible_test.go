@@ -2,6 +2,7 @@ package transport
 
 import (
 	"encoding/json"
+	"google.golang.org/protobuf/encoding/protojson"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -40,13 +41,17 @@ func TestVisibleHTTPBoundary(t *testing.T) {
 		t.Fatal("incomplete catalog")
 	}
 	boxes := 0
+	wakingSalts := false
 	for _, card := range catalog.Cards {
 		if card.BoxSize > 0 {
 			boxes++
 		}
+		if card.ID == "waking_salts" && card.Name == "惊醒嗅盐" && card.Rarity == int32(pb.PotionRarity_RED) {
+			wakingSalts = true
+		}
 	}
-	if boxes != 4 {
-		t.Fatal("box catalog", boxes)
+	if boxes != 4 || !wakingSalts {
+		t.Fatal("incomplete potion catalog", boxes, wakingSalts)
 	}
 	request := func(v ai.VisibleInput) string {
 		body, err := json.Marshal(map[string]any{"visible": v, "strategy": "random"})
@@ -101,6 +106,46 @@ func TestVisibleHTTPBoundary(t *testing.T) {
 		if w := post(r, "/api/v1/ai/visible", body, ""); w.Code != 400 {
 			t.Fatal("hidden or computed field accepted")
 		}
+	}
+}
+
+func TestPublicLocalModelInputsMatchTrainingSpecification(t *testing.T) {
+	r := testRouter(t)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/ai/model/spec", nil))
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	var spec pb.TrainingSpec
+	if err := protojson.Unmarshal(w.Body.Bytes(), &spec); err != nil {
+		t.Fatal(err)
+	}
+	if spec.SpecHash == "" || spec.Tensor.ActionCount != int32(len(spec.Actions)) {
+		t.Fatal("incomplete public model specification")
+	}
+	body, err := json.Marshal(map[string]any{"visible": visibleFixture()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w = post(r, "/api/v1/ai/model/input", string(body), "")
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	var transition pb.TrainingTransition
+	if err := protojson.Unmarshal(w.Body.Bytes(), &transition); err != nil {
+		t.Fatal(err)
+	}
+	if transition.TensorObservation == nil || len(transition.ActionMask) != len(spec.Actions) {
+		t.Fatal("incomplete model input")
+	}
+	legal := 0
+	for _, allowed := range transition.ActionMask {
+		if allowed == 1 {
+			legal++
+		}
+	}
+	if legal == 0 || legal != len(transition.LegalActions) || transition.Info.SpecVersion != spec.SpecVersion {
+		t.Fatal("model input and action mask do not match specification")
 	}
 }
 

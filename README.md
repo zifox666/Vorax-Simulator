@@ -65,7 +65,7 @@ go run ./cmd/server
 
 ## 真实游戏辅助决策参考
 
-本项目附带一个简单的OCR决策处理，使用方法参考 [Readme](app/README.md)，请自行构建
+本项目附带 OCR 决策客户端，可在服务端纯算法与用户自行放入 `models` 目录的本地训练模型之间切换。使用方法参考 [Readme](app/README.md)，请自行构建。
 
 ## 本地数据与网络
 
