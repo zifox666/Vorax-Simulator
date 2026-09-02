@@ -13,12 +13,15 @@ dependencies = [
 test = ["pytest>=8"]
 train = [
   "sb3-contrib>=2.7,<3",
+  "rich>=13.7,<15",
   "torch>=2.8",
   "tensorboard>=2.16",
 ]
 
 [project.scripts]
 vorax-train = "vorax_gym.train:main"
+vorax-eval = "vorax_gym.evaluate:main"
+vorax-guide-eval = "vorax_gym.guide_evaluate:main"
 
 [build-system]
 requires = ["hatchling"]

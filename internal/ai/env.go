@@ -1,6 +1,9 @@
 package ai
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 
@@ -164,6 +167,12 @@ func claimOf(s string) pb.ClaimStatus {
 
 // derivedToolFamily 从槽位推导初始流派多数派；并列时随机选一个。
 func derivedToolFamily(s *pb.GameState) pb.Family {
+	return derivedToolFamilyAt(s, rand.Uint64())
+}
+
+// derivedToolFamilyAt 从槽位推导初始流派多数派；并列时用给定随机值选一个。
+// 把随机值作为参数后，在线重建仍可随机，而搜索可使用可复现的公开局面采样。
+func derivedToolFamilyAt(s *pb.GameState, tieBreak uint64) pb.Family {
 	counts := [5]int{}
 	for _, slot := range s.Slots {
 		if m := slot.Monster; m != nil && m.Family >= pb.Family_BONE && m.Family <= pb.Family_INSECT {
@@ -184,7 +193,7 @@ func derivedToolFamily(s *pb.GameState) pb.Family {
 	if len(leaders) == 1 {
 		return leaders[0]
 	}
-	return leaders[rand.Intn(len(leaders))]
+	return leaders[tieBreak%uint64(len(leaders))]
 }
 
 // buildSim 用当前观察重建一个推演环境（每次调用 RNG 重新随机）。
@@ -194,6 +203,36 @@ func buildSim(o *Observation) (*simEnv, error) {
 		return nil, err
 	}
 	return &simEnv{state: s}, nil
+}
+
+// buildSimSample 构造一个由“可见观察 + 样本编号”唯一确定的未知未来。
+// 它不读取真实游戏 RNG；不同样本仍覆盖不同未来，但同一局面反复决策、或并行基准
+// 调度顺序变化时，候选动作会面对完全相同且可复现的样本集合。
+func buildSimSample(o *Observation, sample int) (*simEnv, error) {
+	s, err := RebuildState(o)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(o)
+	if err != nil {
+		return nil, fmt.Errorf("可见观察无法生成采样种子: %w", err)
+	}
+	digest := sha256.Sum256(raw)
+	base := binary.LittleEndian.Uint64(digest[:8])
+	sampleKey := mixSample64(uint64(sample) ^ 0x9e3779b97f4a7c15)
+	s.InitRng = mixSample64(base ^ sampleKey ^ 0x243f6a8885a308d3)
+	s.OfferRng = mixSample64(base ^ sampleKey ^ 0x13198a2e03707344)
+	s.EffectRng = mixSample64(base ^ sampleKey ^ 0xa4093822299f31d0)
+	s.OpeningToolFamily = derivedToolFamilyAt(s, mixSample64(base^sampleKey^0x082efa98ec4e6c89))
+	return &simEnv{state: s}, nil
+}
+
+// mixSample64 是仅供 AI 公开局面采样使用的 SplitMix64 混合函数。
+func mixSample64(x uint64) uint64 {
+	x += 0x9e3779b97f4a7c15
+	x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9
+	x = (x ^ (x >> 27)) * 0x94d049bb133111eb
+	return x ^ (x >> 31)
 }
 
 // observe 返回推演环境的可见观察（内部复用同一构建逻辑）。

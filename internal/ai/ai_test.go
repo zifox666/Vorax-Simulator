@@ -95,6 +95,56 @@ func TestRebuildStateDistinctFutures(t *testing.T) {
 	}
 }
 
+func TestBuildSimSampleIsRepeatable(t *testing.T) {
+	s := newFixture(t)
+	next, _, err := engine.Apply(s, &pb.Command{Type: "skip_unknown", OfferId: s.Offer.Id}, rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	obs := FromGameState(next)
+	a, err := buildSimSample(obs, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := buildSimSample(obs, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.state.InitRng != b.state.InitRng || a.state.OfferRng != b.state.OfferRng ||
+		a.state.EffectRng != b.state.EffectRng || a.state.OpeningToolFamily != b.state.OpeningToolFamily {
+		t.Fatal("相同公开局面和样本编号必须生成相同推演未来")
+	}
+	c, err := buildSimSample(obs, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.state.InitRng == c.state.InitRng && a.state.OfferRng == c.state.OfferRng && a.state.EffectRng == c.state.EffectRng {
+		t.Fatal("不同样本编号不应生成完全相同的推演未来")
+	}
+}
+
+func TestTierSamplerDecisionIsRepeatable(t *testing.T) {
+	s := newFixture(t)
+	next, _, err := engine.Apply(s, &pb.Command{Type: "skip_unknown", OfferId: s.Offer.Id}, rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	obs := FromGameState(next)
+	want, err := Decide(obs, StrategyTierSampler, Params{Rollouts: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		got, err := Decide(obs, StrategyTierSampler, Params{Rollouts: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Type != want.Type || got.CardID != want.CardID || !equalInts(got.Slots, want.Slots) {
+			t.Fatalf("同一公开局面决策不稳定: want=%v got=%v", want, got)
+		}
+	}
+}
+
 // TestLegalActions 验证动作枚举与"观察即合法动作全集"。
 func TestLegalActions(t *testing.T) {
 	s := newFixture(t)
@@ -118,7 +168,7 @@ func TestLegalActions(t *testing.T) {
 	}
 }
 
-// TestDecideStrategies 三种策略都应返回可执行动作。
+// TestDecideStrategies 所有策略都应返回可执行动作。
 func TestDecideStrategies(t *testing.T) {
 	s := newFixture(t)
 	next, _, err := engine.Apply(s, &pb.Command{Type: "skip_unknown", OfferId: s.Offer.Id}, rules)
@@ -126,7 +176,7 @@ func TestDecideStrategies(t *testing.T) {
 		t.Fatal(err)
 	}
 	obs := FromGameState(next)
-	for _, strat := range []Strategy{StrategyRandom, StrategyGreedy, StrategySampler} {
+	for _, strat := range []Strategy{StrategyRandom, StrategyGreedy, StrategySampler, StrategyTierSampler} {
 		act, err := Decide(obs, strat, Params{})
 		if err != nil {
 			t.Fatalf("策略 %s 失败: %v", strat, err)
@@ -141,6 +191,18 @@ func TestDecideStrategies(t *testing.T) {
 		if !valid {
 			t.Errorf("策略 %s 返回了非法动作 %v", strat, act)
 		}
+	}
+}
+
+func TestTierUtilityPrioritizesFloorAndCapsExcess(t *testing.T) {
+	if got := tierUtility(607_000); got != 7 {
+		t.Fatalf("floor utility = %v, want 7", got)
+	}
+	if got := tierUtility(721_000); got != 10 {
+		t.Fatalf("excellent utility = %v, want 10", got)
+	}
+	if tierUtility(3_000_000) != tierUtility(1_120_000) {
+		t.Fatal("scores above cap must have equal utility")
 	}
 }
 

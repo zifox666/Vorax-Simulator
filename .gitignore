@@ -15,8 +15,11 @@ coverage.out
 .pytest_cache/
 __pycache__/
 *.pyc
+.DS_store
 
 渴瘾玩法说明书.md
 docker-compose.yaml
 
-*/runs/*
+**/runs/*
+**/models/*
+**/reports/*

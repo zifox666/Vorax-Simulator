@@ -205,6 +205,17 @@ class VoraxVectorEnv(VectorEnv):
         results = self.client.request("POST", "/api/v1/training/batch/step", {"items": items})["results"]
         rewards, truncations = np.zeros(self.num_envs), np.zeros(self.num_envs, dtype=np.bool_)
         for i, result in enumerate(results):
+            if "error" in result:
+                error = result["error"]
+                mask = self._observations[i]["action_mask"]
+                action = int(actions[i])
+                locally_allowed = 0 <= action < len(mask) and bool(mask[action])
+                message = error.get("message", "batch item failed")
+                raise VoraxAPIError(
+                    400,
+                    error.get("code", "ITEM_ERROR"),
+                    f"{message} (batch env={i}, actionIndex={action}, clientMaskAllowed={locally_allowed})",
+                )
             transition = _unwrap(result)
             self.episode_tokens[i] = transition["episodeToken"]
             self.terminations[i], truncations[i] = bool(transition["terminated"]), bool(transition["truncated"])
