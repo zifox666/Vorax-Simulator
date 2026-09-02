@@ -2,6 +2,7 @@ package application
 
 import (
 	"bytes"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,6 +11,29 @@ import (
 	"vorax/internal/engine"
 	pb "vorax/internal/protocol"
 )
+
+type recordingSpy struct {
+	created    *pb.GameState
+	before     *pb.GameState
+	after      *pb.GameState
+	command    *pb.Command
+	beforeHash string
+	afterHash  string
+	err        error
+}
+
+func (r *recordingSpy) RecordCreated(state *pb.GameState, _ string) error {
+	r.created = proto.Clone(state).(*pb.GameState)
+	return r.err
+}
+
+func (r *recordingSpy) RecordDecision(before, after *pb.GameState, command *pb.Command, _ []*pb.GameEvent, beforeHash, afterHash string) error {
+	r.before = proto.Clone(before).(*pb.GameState)
+	r.after = proto.Clone(after).(*pb.GameState)
+	r.command = proto.Clone(command).(*pb.Command)
+	r.beforeHash, r.afterHash = beforeHash, afterHash
+	return r.err
+}
 
 func service(t *testing.T) *Service {
 	t.Helper()
@@ -70,6 +94,36 @@ func TestCreateRetryCommandRetryAndRestart(t *testing.T) {
 	}
 	if !proto.Equal(a.View, restored.View) || a.GameplayHash != restored.GameplayHash {
 		t.Fatal("restart changed restored state")
+	}
+}
+
+func TestCreateAndCommandAreRecordedAndRecordingFailureIsRetryable(t *testing.T) {
+	svc := service(t)
+	spy := &recordingSpy{}
+	svc.Recorder = spy
+	out := create(t, svc)
+	if spy.created == nil || spy.created.RunId != out.View.State.RunId {
+		t.Fatal("created game was not recorded")
+	}
+	command := &pb.Command{Type: "skip_unknown", OfferId: out.View.State.Offer.Id}
+	next, err := svc.Command(out.View.State.RunId, &pb.CommandRequest{
+		StateToken: out.StateToken, RequestId: "record-command", ExpectedRevision: out.View.State.Revision, Command: command,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spy.before == nil || spy.after == nil || spy.command.Type != "skip_unknown" || spy.before.Revision+1 != spy.after.Revision {
+		t.Fatal("game transition was not recorded")
+	}
+	if spy.beforeHash == "" || spy.afterHash != next.GameplayHash {
+		t.Fatal("gameplay hashes were not recorded")
+	}
+
+	failing := service(t)
+	failing.Recorder = &recordingSpy{err: errors.New("database unavailable")}
+	_, err = failing.Create(&pb.CreateRunRequest{UserId: "test-user", RequestId: "record-failure", Seed: "seed"})
+	if err == nil || ErrorCode(err) != "INTERNAL_ERROR" {
+		t.Fatalf("recording failure should fail closed with retryable server error: %v", err)
 	}
 }
 

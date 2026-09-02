@@ -14,8 +14,16 @@ import (
 )
 
 type Service struct {
-	Rules  *engine.Rules
-	Signer *Signer
+	Rules    *engine.Rules
+	Signer   *Signer
+	Recorder GameRecorder
+}
+
+// GameRecorder persists privacy-preserving training transitions. Implementations
+// must be idempotent because create and command requests are safe to retry.
+type GameRecorder interface {
+	RecordCreated(state *pb.GameState, gameplayHash string) error
+	RecordDecision(before, after *pb.GameState, command *pb.Command, events []*pb.GameEvent, beforeHash, afterHash string) error
 }
 
 func (svc *Service) Create(req *pb.CreateRunRequest) (*pb.RunResponse, error) {
@@ -40,7 +48,16 @@ func (svc *Service) Create(req *pb.CreateRunRequest) (*pb.RunResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return svc.response(s, nil, req.RequestId)
+	response, err := svc.response(s, nil, req.RequestId)
+	if err != nil {
+		return nil, err
+	}
+	if svc.Recorder != nil {
+		if err := svc.Recorder.RecordCreated(s, response.GameplayHash); err != nil {
+			return nil, fmt.Errorf("INTERNAL_ERROR: 训练数据记录失败: %w", err)
+		}
+	}
+	return response, nil
 }
 
 func (svc *Service) open(token string) (*pb.GameState, error) {
@@ -100,7 +117,20 @@ func (svc *Service) Command(runID string, req *pb.CommandRequest) (*pb.RunRespon
 	if err != nil {
 		return nil, err
 	}
-	return svc.response(next, events, req.RequestId)
+	response, err := svc.response(next, events, req.RequestId)
+	if err != nil {
+		return nil, err
+	}
+	if svc.Recorder != nil {
+		beforeHash, err := GameplayHash(s)
+		if err != nil {
+			return nil, err
+		}
+		if err := svc.Recorder.RecordDecision(s, next, req.Command, events, beforeHash, response.GameplayHash); err != nil {
+			return nil, fmt.Errorf("INTERNAL_ERROR: 训练数据记录失败: %w", err)
+		}
+	}
+	return response, nil
 }
 
 func (svc *Service) response(s *pb.GameState, events []*pb.GameEvent, requestID string) (*pb.RunResponse, error) {

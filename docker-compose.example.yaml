@@ -10,6 +10,7 @@ services:
       SIGNING_KEY_FILE: /data/signing.key
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
       DATABASE_URL: postgres://vorax:vorax_local_only@postgres:5432/vorax?sslmode=disable
+      TELEMETRY_HMAC_KEY_BASE64: ${TELEMETRY_HMAC_KEY_BASE64:-}
       REDIS_URL: redis://redis:6379/0
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       TRAINING_KEY_FILE: /data/training-api-keys.json

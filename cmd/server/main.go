@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -13,14 +15,19 @@ import (
 
 	"vorax/internal/application"
 	"vorax/internal/storage"
+	"vorax/internal/telemetry"
 	"vorax/internal/training"
 	"vorax/internal/transport"
 	"vorax/web"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	if err := loadLocalEnv(); err != nil {
+		log.Fatal(err)
+	}
 	gin.SetMode(gin.ReleaseMode)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	rules, err := storage.LoadContent(ctx, os.Getenv("DATABASE_URL"))
@@ -64,7 +71,31 @@ func main() {
 	if cache != nil {
 		defer cache.Client.Close()
 	}
-	svc := &application.Service{Rules: rules, Signer: signer}
+	telemetryDSN := os.Getenv("TELEMETRY_DATABASE_URL")
+	if telemetryDSN == "" {
+		telemetryDSN = os.Getenv("DATABASE_URL")
+	}
+	var recorder application.GameRecorder
+	if telemetryDSN == "" {
+		log.Print("未配置数据库：本地开发模式不记录脱敏训练数据")
+	} else {
+		pseudonymKey := signer.Keys[signer.Active]
+		if raw := os.Getenv("TELEMETRY_HMAC_KEY_BASE64"); raw != "" {
+			pseudonymKey, err = base64.StdEncoding.DecodeString(raw)
+			if err != nil || len(pseudonymKey) < 32 {
+				log.Fatal("TELEMETRY_HMAC_KEY_BASE64 必须是至少 32 字节的 Base64 编码密钥")
+			}
+		}
+		telemetryCtx, telemetryCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		postgresRecorder, openErr := telemetry.OpenPostgres(telemetryCtx, telemetryDSN, pseudonymKey)
+		telemetryCancel()
+		if openErr != nil {
+			log.Fatal(openErr)
+		}
+		defer postgresRecorder.Close()
+		recorder = postgresRecorder
+	}
+	svc := &application.Service{Rules: rules, Signer: signer, Recorder: recorder}
 	keyStore, err := training.OpenKeyStore(os.Getenv("DATABASE_URL"), env("TRAINING_KEY_FILE", ".local/training-api-keys.json"))
 	if err != nil {
 		log.Fatal(err)
@@ -102,6 +133,17 @@ func main() {
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+}
+
+// loadLocalEnv loads private local settings first, then shared local defaults.
+// godotenv.Load never overwrites values already supplied by the process.
+func loadLocalEnv() error {
+	for _, filename := range []string{".env.local", ".env"} {
+		if err := godotenv.Load(filename); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("读取 %s 失败: %w", filename, err)
+		}
+	}
+	return nil
 }
 
 func env(name, fallback string) string {
